@@ -1,43 +1,112 @@
 <!doctype html>
 <html lang="it">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Album | Gloria &amp; Beniamino</title>
-  <meta name="description" content="L'album condiviso del matrimonio di Gloria e Beniamino." />
-  <meta name="theme-color" content="#f5f2eb" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body data-page="album">
-  <header class="site-header solid" data-header>
-    <a class="brand" href="index.html" aria-label="Torna alla homepage"><span class="brand-mark"><img src="assets/couple-mark.png" alt="Monogramma Gloria e Beniamino" /></span><span class="brand-copy">Gloria &amp; Beniamino</span></a>
-    <button class="nav-toggle" type="button" aria-label="Apri menu" data-nav-toggle><span></span><span></span></button>
-    <nav class="site-nav" data-nav><a href="index.html#info">Informazioni</a><a href="index.html#quiz">Quiz</a><a href="#upload">Carica foto</a></nav>
-  </header>
-  <main class="page-main">
-    <section class="album-hero section">
-      <div class="section-heading reveal"><p class="eyebrow">Album condiviso</p><h1>I vostri scatti</h1><p>I ricordi più belli della giornata, raccolti in un unico luogo.</p></div>
-    </section>
-    <section id="upload" class="upload-section">
-      <div class="upload-card reveal">
-        <div><p class="eyebrow">Condividi un ricordo</p><h2>Carica le tue foto</h2><p>Le immagini vengono ottimizzate automaticamente per mantenere l'album leggero e veloce.</p></div>
-        <form class="upload-form" data-upload-form>
-          <label>Nome e Cognome<input type="text" name="uploaderName" placeholder="Nome e Cognome" required /></label>
-          <label class="dropzone" data-dropzone><input type="file" name="photos" accept="image/*" multiple required /><span class="drop-mark" aria-hidden="true">↥</span><strong>Scegli o trascina le foto</strong><small>Tocca qui per scegliere le tue foto.</small></label>
-          <button class="btn btn-primary" type="submit">Comprimi e carica</button>
-          <div class="upload-status" data-upload-status></div>
-        </form>
-      </div>
-    </section>
-    <section class="gallery-section section">
-      <div class="gallery-toolbar reveal"><div><p class="eyebrow">Cerca nell'album</p><h2>Trova gli scatti</h2></div><label class="search-box"><span>Cerca per nome e cognome</span><input type="search" placeholder="Es. Maria Rossi" data-photo-search /></label></div>
-      <div class="masonry-grid" data-gallery><div class="empty-state"><p>Caricamento album...</p></div></div>
-    </section>
-  </main>
-  <footer class="site-footer"><p>Gloria &amp; Beniamino</p><span>Sviluppato da Giulio Di Donato</span><a href="admin.html">Area Riservata</a></footer>
-  <script src="script.js" defer></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Album | Gloria &amp; Beniamino</title>
+    <meta
+      name="description"
+      content="L'album condiviso del matrimonio di Gloria e Beniamino."
+    />
+    <meta name="theme-color" content="#f5f2eb" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body data-page="album">
+    <header class="site-header solid" data-header>
+      <a class="brand" href="index.html" aria-label="Torna alla homepage"
+        ><span class="brand-mark"
+          ><img
+            src="assets/couple-mark.png"
+            alt="Monogramma Gloria e Beniamino" /></span
+        ><span class="brand-copy">Gloria &amp; Beniamino</span></a
+      >
+      <button
+        class="nav-toggle"
+        type="button"
+        aria-label="Apri menu"
+        data-nav-toggle
+      >
+        <span></span><span></span>
+      </button>
+      <nav class="site-nav" data-nav>
+        <a href="index.html#info">Informazioni</a
+        ><a href="index.html#quiz">Quiz</a><a href="#upload">Carica foto</a>
+      </nav>
+    </header>
+    <main class="page-main">
+      <section class="album-hero section">
+        <div class="section-heading reveal">
+          <p class="eyebrow">📷 Album condiviso</p>
+          <h1>I vostri scatti</h1>
+          <p>I ricordi più belli della giornata, raccolti in un unico luogo.</p>
+        </div>
+      </section>
+      <section id="upload" class="upload-section">
+        <div class="upload-card reveal">
+          <div>
+            <p class="eyebrow">Condividi un ricordo</p>
+            <h2>Carica le tue foto</h2>
+            <p>
+              Le immagini vengono ottimizzate automaticamente per mantenere
+              l'album leggero e veloce.
+            </p>
+          </div>
+          <form class="upload-form" data-upload-form>
+            <label
+              >Nome e Cognome<input
+                type="text"
+                name="uploaderName"
+                placeholder="Nome e Cognome"
+                required
+            /></label>
+            <label class="dropzone" data-dropzone
+              ><input
+                type="file"
+                name="photos"
+                accept="image/*"
+                multiple
+                required
+              /><span class="drop-mark" aria-hidden="true">↥</span
+              ><strong>Scegli o trascina le foto</strong
+              ><small>Tocca qui per scegliere le tue foto.</small></label
+            >
+            <button class="btn btn-primary" type="submit">
+              Comprimi e carica
+            </button>
+            <div class="upload-status" data-upload-status></div>
+          </form>
+        </div>
+      </section>
+      <section class="gallery-section section">
+        <div class="gallery-toolbar reveal">
+          <div>
+            <p class="eyebrow">Cerca nell'album</p>
+            <h2>Trova gli scatti</h2>
+          </div>
+          <label class="search-box"
+            ><span>Cerca per nome e cognome</span
+            ><input
+              type="search"
+              placeholder="Es. Maria Rossi"
+              data-photo-search
+          /></label>
+        </div>
+        <div class="masonry-grid" data-gallery>
+          <div class="empty-state"><p>Caricamento album...</p></div>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <p>Gloria &amp; Beniamino</p>
+      <span>Sviluppato da Giulio Di Donato</span
+      ><a href="admin.html">Area Riservata</a>
+    </footer>
+    <script src="script.js" defer></script>
+  </body>
 </html>

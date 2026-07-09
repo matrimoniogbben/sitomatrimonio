@@ -1,144 +1,173 @@
 <!doctype html>
 <html lang="it">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Area Riservata | Gloria & Beniamino</title>
-  <meta name="robots" content="noindex, nofollow" />
-  <meta name="theme-color" content="#f7f1e7" />
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Area Riservata | Gloria &amp; Beniamino</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#f7eee3" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body data-page="admin">
+    <header class="site-header solid" data-header>
+      <a class="brand" href="index.html" aria-label="Torna alla homepage">
+        <span class="brand-mark"
+          ><img
+            src="assets/couple-mark.png"
+            alt="Monogramma Gloria e Beniamino"
+        /></span>
+        <span class="brand-copy">Gloria &amp; Beniamino</span>
+      </a>
+      <nav class="site-nav visible">
+        <a href="index.html">Homepage</a>
+        <a href="album.html">Album</a>
+      </nav>
+    </header>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet" />
-
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body data-page="admin">
-  <header class="site-header solid" data-header>
-    <a class="brand" href="index.html">
-      <span class="brand-mark"><img src="assets/couple-mark.png" alt="Monogramma Gloria e Beniamino" /></span>
-      <span class="brand-copy">Gloria &amp; Beniamino</span>
-    </a>
-    <nav class="site-nav visible">
-      <a href="index.html">Homepage</a>
-      <a href="album.html">Album</a>
-    </nav>
-  </header>
-
-  <main class="page-main admin-main">
-    <section class="admin-login section" data-admin-login>
-      <div class="login-card reveal">
-        <p class="eyebrow">Solo per gli sposi</p>
-        <h1>Accedi alla gestione</h1>
-        <p>Inserisci le credenziali dell'area riservata per gestire foto, messaggi e quiz.</p>
-
-        <form data-admin-login-form>
-          <label>
-            Utente
-            <input type="text" name="username" autocomplete="username" required />
-          </label>
-          <label>
-            Password
-            <input type="password" name="password" autocomplete="current-password" required />
-          </label>
-          <button class="btn btn-primary full" type="submit">Entra</button>
-          <p class="form-note" data-admin-login-status></p>
-        </form>
-      </div>
-    </section>
-
-    <section class="admin-panel hidden" data-admin-panel>
-      <div class="section-heading reveal">
-        <p class="eyebrow">Dashboard</p>
-        <h1>Gestione matrimonio</h1>
-        <p>Foto, messaggi, quiz e classifica in un unico pannello.</p>
-      </div>
-
-      <div class="stats-grid" data-admin-stats></div>
-
-      <div class="admin-tabs">
-        <button class="tab-btn active" type="button" data-tab-target="photos">Foto</button>
-        <button class="tab-btn" type="button" data-tab-target="messages">Messaggi</button>
-        <button class="tab-btn" type="button" data-tab-target="quiz">Quiz</button>
-      </div>
-
-      <section class="admin-tab active" data-tab="photos">
-        <div class="admin-section-head">
-          <div>
-            <p class="card-kicker">Gestione foto</p>
-            <h2>Album R2</h2>
-          </div>
-          <button class="btn btn-danger" type="button" data-delete-selected>Elimina selezionate</button>
-        </div>
-        <div class="admin-photo-grid" data-admin-photos></div>
-      </section>
-
-      <section class="admin-tab" data-tab="messages">
-        <div class="admin-section-head">
-          <div>
-            <p class="card-kicker">Messaggi &amp; dubbi</p>
-            <h2>Richieste degli ospiti</h2>
-          </div>
-        </div>
-        <div class="message-list" data-admin-messages></div>
-      </section>
-
-      <section class="admin-tab" data-tab="quiz">
-        <div class="admin-section-head">
-          <div>
-            <p class="card-kicker">Gestione quiz</p>
-            <h2>Domande e classifica</h2>
-          </div>
-        </div>
-
-        <div class="admin-quiz-layout">
-          <form class="quiz-editor" data-quiz-editor>
-            <input type="hidden" name="id" />
-            <label>
-              Domanda
-              <input type="text" name="question" required />
-            </label>
-
-            <div class="answer-editor">
-              <label>Risposte</label>
-              <input type="text" name="answer0" placeholder="Risposta 1" required />
-              <input type="text" name="answer1" placeholder="Risposta 2" required />
-              <input type="text" name="answer2" placeholder="Risposta 3" />
-              <input type="text" name="answer3" placeholder="Risposta 4" />
-            </div>
-
-            <label>
-              Risposta corretta
-              <select name="correctIndex">
-                <option value="0">Risposta 1</option>
-                <option value="1">Risposta 2</option>
-                <option value="2">Risposta 3</option>
-                <option value="3">Risposta 4</option>
-              </select>
-            </label>
-
-            <div class="editor-actions">
-              <button class="btn btn-primary" type="submit">Salva domanda</button>
-              <button class="btn btn-ghost" type="button" data-reset-editor>Annulla</button>
-            </div>
-
-            <p class="form-note" data-quiz-editor-status></p>
+    <main class="page-main admin-main">
+      <section class="admin-login section" data-admin-login>
+        <div class="login-card reveal">
+          <p class="eyebrow">Solo per gli sposi</p>
+          <h1>Accedi alla gestione</h1>
+          <form data-admin-login-form>
+            <label
+              >Utente<input
+                type="text"
+                name="username"
+                autocomplete="username"
+                required
+            /></label>
+            <label
+              >Password<input
+                type="password"
+                name="password"
+                autocomplete="current-password"
+                required
+            /></label>
+            <button class="btn btn-primary full" type="submit">Entra</button>
+            <p class="form-note" data-admin-login-status></p>
           </form>
-
-          <div class="question-list" data-admin-questions></div>
-
-          <aside class="leaderboard admin-leaderboard">
-            <div class="leaderboard-header">
-              <p class="card-kicker">Classifica</p>
-              <h3>Risultati invitati</h3>
-            </div>
-            <ol data-admin-leaderboard></ol>
-          </aside>
         </div>
       </section>
-    </section>
-  </main>
 
-  <script src="script.js" defer></script>
-</body>
+      <section class="admin-panel hidden" data-admin-panel>
+        <div class="admin-title-row reveal">
+          <div>
+            <p class="eyebrow">Area sposi</p>
+            <h1>Gestione matrimonio</h1>
+          </div>
+          <button class="btn btn-secondary" type="button" data-admin-logout>
+            Esci
+          </button>
+        </div>
+        <div class="stats-grid" data-admin-stats></div>
+        <div class="admin-tabs" role="tablist">
+          <button class="tab-btn active" type="button" data-tab-target="photos">
+            Album
+          </button>
+          <button class="tab-btn" type="button" data-tab-target="messages">
+            Messaggi
+          </button>
+          <button class="tab-btn" type="button" data-tab-target="quiz">
+            Quiz
+          </button>
+          <button class="tab-btn" type="button" data-tab-target="leaderboard">
+            Classifica quiz
+          </button>
+        </div>
+
+        <section class="admin-tab active" data-tab="photos">
+          <div class="admin-section-head">
+            <div>
+              <p class="card-kicker">Gestione foto</p>
+              <h2>Album</h2>
+            </div>
+            <button class="btn btn-danger" type="button" data-delete-selected>
+              Elimina selezionate
+            </button>
+          </div>
+          <div class="admin-photo-grid" data-admin-photos></div>
+        </section>
+
+        <section class="admin-tab" data-tab="messages">
+          <div class="admin-section-head">
+            <div>
+              <p class="card-kicker">Messaggi &amp; dubbi</p>
+              <h2>Richieste degli ospiti</h2>
+            </div>
+          </div>
+          <div class="message-list" data-admin-messages></div>
+        </section>
+
+        <section class="admin-tab" data-tab="quiz">
+          <div class="admin-section-head">
+            <div>
+              <p class="card-kicker">Gestione domande</p>
+              <h2>Quiz</h2>
+            </div>
+          </div>
+          <div class="admin-quiz-layout">
+            <form class="quiz-editor" data-quiz-editor>
+              <input type="hidden" name="id" />
+              <label
+                >Domanda<input type="text" name="question" required
+              /></label>
+              <div class="answer-editor">
+                <div class="answer-editor-head">
+                  <label>Risposte</label
+                  ><button class="text-button" type="button" data-add-answer>
+                    Aggiungi risposta
+                  </button>
+                </div>
+                <div data-answer-fields></div>
+              </div>
+              <label
+                >Risposta corretta<select
+                  name="correctIndex"
+                  data-correct-answer
+                  required
+                ></select
+              ></label>
+              <div class="editor-actions">
+                <button class="btn btn-primary" type="submit">
+                  Salva domanda</button
+                ><button class="btn btn-ghost" type="button" data-reset-editor>
+                  Annulla
+                </button>
+              </div>
+              <p class="form-note" data-quiz-editor-status></p>
+            </form>
+            <div class="question-list" data-admin-questions></div>
+          </div>
+        </section>
+
+        <section class="admin-tab" data-tab="leaderboard">
+          <div class="admin-section-head">
+            <div>
+              <p class="card-kicker">Risultati della sfida</p>
+              <h2>Classifica quiz</h2>
+            </div>
+          </div>
+          <label class="leaderboard-search"
+            >Cerca un invitato<input
+              type="search"
+              placeholder="Nome o cognome"
+              data-leaderboard-search
+          /></label>
+          <ol class="admin-leaderboard-list" data-admin-leaderboard></ol>
+        </section>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <p>Gloria &amp; Beniamino</p>
+      <span>Sviluppato da Giulio Di Donato</span>
+    </footer>
+    <script src="script.js" defer></script>
+  </body>
 </html>

@@ -1,5 +1,6 @@
 const $ = (selector, root = document) => root.querySelector(selector);
-const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+const $$ = (selector, root = document) =>
+  Array.from(root.querySelectorAll(selector));
 
 const page = document.body.dataset.page;
 
@@ -13,6 +14,7 @@ const state = {
     timerId: null,
   },
   adminToken: localStorage.getItem("gbAdminToken") || "",
+  adminLeaderboard: [],
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -70,7 +72,7 @@ function initRevealAnimations() {
         }
       });
     },
-    { threshold: 0.12 }
+    { threshold: 0.12 },
   );
 
   items.forEach((item) => observer.observe(item));
@@ -78,7 +80,9 @@ function initRevealAnimations() {
 
 function initMapFrames() {
   $$("[data-map-query]").forEach((frame) => {
-    const query = encodeURIComponent(frame.dataset.mapQuery || "Gloria Beniamino matrimonio");
+    const query = encodeURIComponent(
+      frame.dataset.mapQuery || "Gloria Beniamino matrimonio",
+    );
     const iframe = $("iframe", frame);
     if (iframe) {
       iframe.src = `https://maps.google.com/maps?q=${query}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
@@ -88,7 +92,9 @@ function initMapFrames() {
 
 async function api(path, options = {}) {
   const headers = {
-    ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+    ...(options.body instanceof FormData
+      ? {}
+      : { "Content-Type": "application/json" }),
     ...(options.headers || {}),
   };
 
@@ -100,7 +106,9 @@ async function api(path, options = {}) {
     ...options,
     headers,
     body:
-      options.body && !(options.body instanceof FormData) && typeof options.body !== "string"
+      options.body &&
+      !(options.body instanceof FormData) &&
+      typeof options.body !== "string"
         ? JSON.stringify(options.body)
         : options.body,
   });
@@ -144,7 +152,7 @@ async function loadPhotoCarousel() {
           <img src="${escapeAttr(photo.url)}" alt="Foto caricata da ${escapeAttr(photo.uploaderName)}" loading="lazy">
           <span class="photo-badge">${escapeHtml(photo.uploaderName)}</span>
         </article>
-      `
+      `,
       )
       .join("");
   } catch (error) {
@@ -198,7 +206,10 @@ async function initQuiz() {
     state.quiz.questions = data.questions || [];
     state.quiz.answers = new Array(state.quiz.questions.length).fill(null);
   } catch (error) {
-    form.insertAdjacentHTML("afterend", `<p class="form-note">${escapeHtml(error.message)}</p>`);
+    form.insertAdjacentHTML(
+      "afterend",
+      `<p class="form-note">${escapeHtml(error.message)}</p>`,
+    );
   }
 
   form.addEventListener("submit", (event) => {
@@ -250,8 +261,10 @@ function renderQuizQuestion() {
   const question = state.quiz.questions[state.quiz.current];
   const total = state.quiz.questions.length;
 
-  $("[data-quiz-counter]").textContent = `Domanda ${state.quiz.current + 1} di ${total}`;
-  $("[data-quiz-progress]").style.width = `${((state.quiz.current + 1) / total) * 100}%`;
+  $("[data-quiz-counter]").textContent =
+    `Domanda ${state.quiz.current + 1} di ${total}`;
+  $("[data-quiz-progress]").style.width =
+    `${((state.quiz.current + 1) / total) * 100}%`;
   $("[data-quiz-intro]").textContent = question.intro || "";
   $("[data-quiz-question]").textContent = question.question;
 
@@ -262,19 +275,22 @@ function renderQuizQuestion() {
       <button class="answer-option ${state.quiz.answers[state.quiz.current] === index ? "selected" : ""}" type="button" data-answer-index="${index}">
         ${escapeHtml(answer)}
       </button>
-    `
+    `,
     )
     .join("");
 
   $$("[data-answer-index]", answersRoot).forEach((button) => {
     button.addEventListener("click", () => {
-      state.quiz.answers[state.quiz.current] = Number(button.dataset.answerIndex);
+      state.quiz.answers[state.quiz.current] = Number(
+        button.dataset.answerIndex,
+      );
       renderQuizQuestion();
     });
   });
 
   $("[data-quiz-prev]").disabled = state.quiz.current === 0;
-  $("[data-quiz-next]").textContent = state.quiz.current === total - 1 ? "Invia risposte" : "Avanti";
+  $("[data-quiz-next]").textContent =
+    state.quiz.current === total - 1 ? "Invia risposte" : "Avanti";
 }
 
 async function submitQuiz() {
@@ -297,7 +313,9 @@ async function submitQuiz() {
 
     const result = data.result;
     $("[data-quiz-box]")?.classList.add("hidden");
-    showQuizResult(`Hai risposto correttamente a ${result.correctAnswers}/${result.total} domande.`);
+    showQuizResult(
+      `Hai risposto correttamente a ${result.correctAnswers}/${result.total} domande.`,
+    );
   } catch (error) {
     showQuizResult(error.message);
   }
@@ -307,7 +325,9 @@ function startQuizTimer() {
   stopQuizTimer();
   const timer = $("[data-quiz-timer]");
   const update = () => {
-    const elapsedSeconds = Math.floor((performance.now() - state.quiz.startedAt) / 1000);
+    const elapsedSeconds = Math.floor(
+      (performance.now() - state.quiz.startedAt) / 1000,
+    );
     timer.textContent = `${String(Math.floor(elapsedSeconds / 60)).padStart(2, "0")}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
   };
   update();
@@ -366,7 +386,8 @@ function initDropzone() {
 
   dropzone.addEventListener("drop", (event) => {
     const input = $("input[type='file']", dropzone);
-    if (input && event.dataTransfer?.files?.length) input.files = event.dataTransfer.files;
+    if (input && event.dataTransfer?.files?.length)
+      input.files = event.dataTransfer.files;
   });
 }
 
@@ -471,10 +492,14 @@ async function compressImageToWebP(file, maxSide = 1920, quality = 0.8) {
     canvas.toBlob(
       (blob) => {
         if (!blob) return reject(new Error("Compressione non riuscita."));
-        resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" }));
+        resolve(
+          new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), {
+            type: "image/webp",
+          }),
+        );
       },
       "image/webp",
-      quality
+      quality,
     );
   });
 }
@@ -513,7 +538,9 @@ async function loadGallery(search = "") {
   gallery.innerHTML = `<div class="empty-state"><p>Caricamento album...</p></div>`;
 
   try {
-    const query = search ? `?search=${encodeURIComponent(search)}&limit=200` : "?limit=200";
+    const query = search
+      ? `?search=${encodeURIComponent(search)}&limit=200`
+      : "?limit=200";
     const data = await api(`/api/photos${query}`, { admin: false });
     const photos = data.photos || [];
 
@@ -532,7 +559,7 @@ async function loadGallery(search = "") {
             <a class="download-pill" href="${escapeAttr(photo.downloadUrl)}" target="_blank" rel="noreferrer">Scarica</a>
           </div>
         </article>
-      `
+      `,
       )
       .join("");
   } catch (error) {
@@ -554,7 +581,9 @@ function initAdmin() {
     event.preventDefault();
 
     const status = $("[data-admin-login-status]");
-    const credentials = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const credentials = Object.fromEntries(
+      new FormData(event.currentTarget).entries(),
+    );
 
     try {
       status.textContent = "Accesso in corso...";
@@ -586,9 +615,20 @@ function initAdmin() {
   $("[data-delete-selected]")?.addEventListener("click", deleteSelectedPhotos);
   $("[data-quiz-editor]")?.addEventListener("submit", saveQuizQuestion);
   $("[data-reset-editor]")?.addEventListener("click", resetQuizEditor);
+  $("[data-add-answer]")?.addEventListener("click", () => addAnswerField());
+  $("[data-leaderboard-search]")?.addEventListener("input", (event) =>
+    renderAdminLeaderboard(event.target.value),
+  );
+  $("[data-admin-logout]")?.addEventListener("click", () => {
+    localStorage.removeItem("gbAdminToken");
+    state.adminToken = "";
+    window.location.reload();
+  });
+  resetQuizEditor();
 
   window.setInterval(() => {
-    if (state.adminToken && !panel?.classList.contains("hidden")) loadAdminAll(false);
+    if (state.adminToken && !panel?.classList.contains("hidden"))
+      loadAdminAll(false);
   }, 10000);
 }
 
@@ -628,7 +668,8 @@ function statCard(value, label) {
 async function loadAdminPhotos(showLoading = true) {
   const root = $("[data-admin-photos]");
   if (!root) return;
-  if (showLoading) root.innerHTML = `<div class="empty-state"><p>Caricamento foto...</p></div>`;
+  if (showLoading)
+    root.innerHTML = `<div class="empty-state"><p>Caricamento foto...</p></div>`;
 
   try {
     const data = await api("/api/admin/photos");
@@ -649,7 +690,7 @@ async function loadAdminPhotos(showLoading = true) {
             <span>${escapeHtml(photo.uploaderName)}<br><small>${formatDate(photo.createdAt)}</small></span>
           </label>
         </article>
-      `
+      `,
       )
       .join("");
   } catch (error) {
@@ -664,7 +705,8 @@ async function deleteSelectedPhotos() {
     return;
   }
 
-  if (!confirm(`Eliminare ${keys.length} foto? L'azione non è reversibile.`)) return;
+  if (!confirm(`Eliminare ${keys.length} foto? L'azione non è reversibile.`))
+    return;
 
   try {
     await api("/api/admin/photos", {
@@ -680,7 +722,8 @@ async function deleteSelectedPhotos() {
 async function loadAdminMessages(showLoading = true) {
   const root = $("[data-admin-messages]");
   if (!root) return;
-  if (showLoading) root.innerHTML = `<div class="empty-state"><p>Caricamento messaggi...</p></div>`;
+  if (showLoading)
+    root.innerHTML = `<div class="empty-state"><p>Caricamento messaggi...</p></div>`;
 
   try {
     const data = await api("/api/admin/messages");
@@ -703,9 +746,10 @@ async function loadAdminMessages(showLoading = true) {
             <button class="btn btn-secondary" type="button" data-toggle-read="${escapeAttr(message.id)}" data-read="${message.read ? "false" : "true"}">
               ${message.read ? "Segna come da leggere" : "Segna come letto"}
             </button>
+            <button class="btn btn-danger" type="button" data-delete-message="${escapeAttr(message.id)}">Elimina</button>
           </div>
         </article>
-      `
+      `,
       )
       .join("");
 
@@ -719,6 +763,17 @@ async function loadAdminMessages(showLoading = true) {
         await loadAdminDashboard();
       });
     });
+
+    $$("[data-delete-message]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        if (!confirm("Eliminare questo messaggio?")) return;
+        await api(`/api/admin/messages/${button.dataset.deleteMessage}`, {
+          method: "DELETE",
+        });
+        await loadAdminMessages(false);
+        await loadAdminDashboard();
+      });
+    });
   } catch (error) {
     handleAdminError(error);
   }
@@ -726,8 +781,7 @@ async function loadAdminMessages(showLoading = true) {
 
 async function loadAdminQuiz(showLoading = true) {
   const questionRoot = $("[data-admin-questions]");
-  const leaderboardRoot = $("[data-admin-leaderboard]");
-  if (!questionRoot || !leaderboardRoot) return;
+  if (!questionRoot) return;
 
   if (showLoading) {
     questionRoot.innerHTML = `<div class="empty-state"><p>Caricamento quiz...</p></div>`;
@@ -736,7 +790,7 @@ async function loadAdminQuiz(showLoading = true) {
   try {
     const data = await api("/api/admin/quiz");
     const questions = data.questions || [];
-    const leaderboard = data.leaderboard || [];
+    state.adminLeaderboard = data.leaderboard || [];
 
     questionRoot.innerHTML = questions.length
       ? questions
@@ -751,7 +805,7 @@ async function loadAdminQuiz(showLoading = true) {
                   <li class="${index === question.correctIndex ? "correct" : ""}">
                     ${escapeHtml(answer)} ${index === question.correctIndex ? "✓" : ""}
                   </li>
-                `
+                `,
                 )
                 .join("")}
             </ul>
@@ -760,25 +814,12 @@ async function loadAdminQuiz(showLoading = true) {
               <button class="btn btn-danger" type="button" data-delete-question="${escapeAttr(question.id)}">Elimina</button>
             </div>
           </article>
-        `
+        `,
           )
           .join("")
       : `<div class="empty-state"><p>Nessuna domanda creata.</p></div>`;
 
-    leaderboardRoot.innerHTML = leaderboard.length
-      ? leaderboard
-          .slice(0, 20)
-          .map(
-            (row) => `
-          <li>
-            <span class="rank">${row.position}</span>
-            <span>${escapeHtml(row.name)} ${escapeHtml(row.surname)}</span>
-            <span class="score">${row.score} pt</span>
-          </li>
-        `
-          )
-          .join("")
-      : `<li class="empty-line">Nessun risultato.</li>`;
+    renderAdminLeaderboard($("[data-leaderboard-search]")?.value || "");
 
     $$("[data-edit-question]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -790,7 +831,10 @@ async function loadAdminQuiz(showLoading = true) {
     $$("[data-delete-question]").forEach((button) => {
       button.addEventListener("click", async () => {
         if (!confirm("Eliminare questa domanda?")) return;
-        await api(`/api/admin/quiz/questions/${button.dataset.deleteQuestion}`, { method: "DELETE" });
+        await api(
+          `/api/admin/quiz/questions/${button.dataset.deleteQuestion}`,
+          { method: "DELETE" },
+        );
         await loadAdminAll(false);
       });
     });
@@ -799,21 +843,38 @@ async function loadAdminQuiz(showLoading = true) {
   }
 }
 
+function renderAdminLeaderboard(search = "") {
+  const root = $("[data-admin-leaderboard]");
+  if (!root) return;
+
+  const query = search.trim().toLowerCase();
+  const rows = state.adminLeaderboard.filter((row) =>
+    `${row.name} ${row.surname}`.toLowerCase().includes(query),
+  );
+
+  root.innerHTML = rows.length
+    ? rows
+        .map(
+          (row) => `
+          <li>
+            <span class="rank">${row.position}</span>
+            <span><strong>${escapeHtml(row.name)} ${escapeHtml(row.surname)}</strong><small>${row.correctAnswers}/${row.total} risposte corrette</small></span>
+            <span class="score">${formatElapsed(row.elapsedMs)}</span>
+          </li>
+        `,
+        )
+        .join("")
+    : `<li class="empty-line">Nessun invitato trovato.</li>`;
+}
+
 async function saveQuizQuestion(event) {
   event.preventDefault();
 
   const form = event.currentTarget;
   const status = $("[data-quiz-editor-status]");
-  const formData = new FormData(form);
-  const id = formData.get("id");
-
-  const answers = [
-    formData.get("answer0"),
-    formData.get("answer1"),
-    formData.get("answer2"),
-    formData.get("answer3"),
-  ]
-    .map((value) => String(value || "").trim())
+  const id = $("[name='id']", form).value;
+  const answers = $$("[data-answer-field]", form)
+    .map((input) => input.value.trim())
     .filter(Boolean);
 
   const payload = {
@@ -824,10 +885,13 @@ async function saveQuizQuestion(event) {
 
   try {
     status.textContent = "Salvataggio...";
-    await api(id ? `/api/admin/quiz/questions/${id}` : "/api/admin/quiz/questions", {
-      method: id ? "PUT" : "POST",
-      body: payload,
-    });
+    await api(
+      id ? `/api/admin/quiz/questions/${id}` : "/api/admin/quiz/questions",
+      {
+        method: id ? "PUT" : "POST",
+        body: payload,
+      },
+    );
     resetQuizEditor();
     status.textContent = "Domanda salvata.";
     await loadAdminAll(false);
@@ -840,13 +904,12 @@ function fillQuizEditor(question) {
   const form = $("[data-quiz-editor]");
   if (!form) return;
 
-  form.id.value = question.id;
+  $("[name='id']", form).value = question.id;
   form.question.value = question.question;
-  form.answer0.value = question.answers[0] || "";
-  form.answer1.value = question.answers[1] || "";
-  form.answer2.value = question.answers[2] || "";
-  form.answer3.value = question.answers[3] || "";
-  form.correctIndex.value = question.correctIndex;
+  const fields = $("[data-answer-fields]", form);
+  fields.innerHTML = "";
+  question.answers.forEach((answer) => addAnswerField(answer));
+  syncCorrectAnswerOptions(question.correctIndex);
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -854,7 +917,44 @@ function resetQuizEditor() {
   const form = $("[data-quiz-editor]");
   if (!form) return;
   form.reset();
-  form.id.value = "";
+  $("[name='id']", form).value = "";
+  const fields = $("[data-answer-fields]", form);
+  fields.innerHTML = "";
+  addAnswerField();
+  addAnswerField();
+  syncCorrectAnswerOptions();
+}
+
+function addAnswerField(value = "") {
+  const fields = $("[data-answer-fields]");
+  if (!fields || fields.children.length >= 6) return;
+  const row = document.createElement("div");
+  row.className = "answer-input-row";
+  row.innerHTML = `<input type="text" data-answer-field value="${escapeAttr(value)}" placeholder="Risposta ${fields.children.length + 1}" required><button class="remove-answer" type="button" aria-label="Rimuovi risposta">×</button>`;
+  fields.appendChild(row);
+  $("[data-answer-field]", row).addEventListener("input", () =>
+    syncCorrectAnswerOptions(),
+  );
+  $(".remove-answer", row).addEventListener("click", () => {
+    if (fields.children.length <= 2) return;
+    row.remove();
+    syncCorrectAnswerOptions();
+  });
+  syncCorrectAnswerOptions();
+}
+
+function syncCorrectAnswerOptions(selectedIndex = undefined) {
+  const select = $("[data-correct-answer]");
+  const answers = $$("[data-answer-field]").map((input) => input.value.trim());
+  const current = selectedIndex ?? Number(select?.value || 0);
+  if (!select) return;
+  select.innerHTML = answers
+    .map(
+      (answer, index) =>
+        `<option value="${index}">Risposta ${index + 1}${answer ? `: ${escapeHtml(answer)}` : ""}</option>`,
+    )
+    .join("");
+  select.value = Math.min(current, Math.max(answers.length - 1, 0));
 }
 
 function handleAdminError(error) {
@@ -872,6 +972,11 @@ function formatBytes(bytes) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatElapsed(milliseconds) {
+  const seconds = Math.floor(Number(milliseconds || 0) / 1000);
+  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 function formatDate(value) {

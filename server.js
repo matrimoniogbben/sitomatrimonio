@@ -24,22 +24,26 @@ const DATA_FILE = path.resolve(process.env.DATA_FILE || "./data/data.json");
 const ADMIN_USER = process.env.ADMIN_USER || "";
 const ADMIN_PASS = process.env.ADMIN_PASS || "";
 const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 8);
-const SIGNED_URL_EXPIRES_SECONDS = Number(process.env.SIGNED_URL_EXPIRES_SECONDS || 900);
-const PHOTO_PREVIEW_EXPIRES_SECONDS = Number(process.env.PHOTO_PREVIEW_EXPIRES_SECONDS || 900);
+const SIGNED_URL_EXPIRES_SECONDS = Number(
+  process.env.SIGNED_URL_EXPIRES_SECONDS || 900,
+);
+const PHOTO_PREVIEW_EXPIRES_SECONDS = Number(
+  process.env.PHOTO_PREVIEW_EXPIRES_SECONDS || 900,
+);
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN === "*" || !process.env.CORS_ORIGIN
-      ? true
-      : process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()),
+    origin:
+      process.env.CORS_ORIGIN === "*" || !process.env.CORS_ORIGIN
+        ? true
+        : process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()),
     credentials: true,
-  })
+  }),
 );
 app.use(express.json({ limit: "1mb" }));
-// The couple supplied these source assets at the project root.
-app.get("/assets/hero.jpg", (req, res) => res.sendFile(path.join(__dirname, "foto.jpg")));
-app.get("/assets/couple-mark.png", (req, res) => res.sendFile(path.join(__dirname, "dara-finale.png")));
-app.use(express.static(path.join(__dirname, "public"), { extensions: ["html"] }));
+app.use(
+  express.static(path.join(__dirname, "public"), { extensions: ["html"] }),
+);
 
 const defaultData = {
   photos: [],
@@ -61,7 +65,12 @@ const defaultData = {
       {
         id: crypto.randomUUID(),
         question: "Cosa devono fare gli invitati oggi?",
-        answers: ["Scappare presto", "Scattare foto e divertirsi", "Restare seri", "Pensare al lavoro"],
+        answers: [
+          "Scappare presto",
+          "Scattare foto e divertirsi",
+          "Restare seri",
+          "Pensare al lavoro",
+        ],
         correctIndex: 1,
       },
     ],
@@ -77,7 +86,7 @@ function hasR2Config() {
     process.env.R2_ACCOUNT_ID &&
       process.env.R2_ACCESS_KEY_ID &&
       process.env.R2_SECRET_ACCESS_KEY &&
-      process.env.R2_BUCKET
+      process.env.R2_BUCKET,
   );
 }
 
@@ -108,17 +117,27 @@ function cleanText(value, max = 160) {
 }
 
 function cleanEmail(value) {
-  return String(value || "").trim().toLowerCase().slice(0, 180);
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .slice(0, 180);
 }
 
 function assertAdminCredentialsAreConfigured() {
-  return ADMIN_USER && ADMIN_PASS && ADMIN_PASS.length >= 8 && ADMIN_PASS !== "cambia-questa-password";
+  return (
+    ADMIN_USER &&
+    ADMIN_PASS &&
+    ADMIN_PASS.length >= 8 &&
+    ADMIN_PASS !== "cambia-questa-password"
+  );
 }
 
 function adminToken() {
   return crypto
     .createHash("sha256")
-    .update(`gb-admin:${ADMIN_USER}:${ADMIN_PASS}:${process.env.R2_SECRET_ACCESS_KEY || "local-secret"}`)
+    .update(
+      `gb-admin:${ADMIN_USER}:${ADMIN_PASS}:${process.env.R2_SECRET_ACCESS_KEY || "local-secret"}`,
+    )
     .digest("hex");
 }
 
@@ -134,7 +153,7 @@ function requireAdmin(req, res, next) {
     return jsonError(
       res,
       503,
-      "ADMIN_PASS non configurata: imposta una password sicura nel file .env."
+      "ADMIN_PASS non configurata: imposta una password sicura nel file .env.",
     );
   }
 
@@ -170,7 +189,9 @@ async function loadData() {
       questions: Array.isArray(parsed.quiz?.questions)
         ? parsed.quiz.questions
         : defaultData.quiz.questions,
-      submissions: Array.isArray(parsed.quiz?.submissions) ? parsed.quiz.submissions : [],
+      submissions: Array.isArray(parsed.quiz?.submissions)
+        ? parsed.quiz.submissions
+        : [],
     },
   };
 
@@ -201,7 +222,7 @@ function requireR2(res) {
     jsonError(
       res,
       503,
-      "Cloudflare R2 non è configurato. Compila le variabili R2 nel file .env."
+      "Cloudflare R2 non è configurato. Compila le variabili R2 nel file .env.",
     );
     return false;
   }
@@ -209,13 +230,15 @@ function requireR2(res) {
 }
 
 function fileBaseName(name) {
-  return cleanText(name || "foto", 80)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase() || "foto";
+  return (
+    cleanText(name || "foto", 80)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .toLowerCase() || "foto"
+  );
 }
 
 function publicUrlForKey(key) {
@@ -231,11 +254,15 @@ async function signedGetUrl(key, downloadName = undefined) {
     Bucket: process.env.R2_BUCKET,
     Key: key,
     ...(downloadName
-      ? { ResponseContentDisposition: `attachment; filename="${downloadName.replace(/"/g, "")}"` }
+      ? {
+          ResponseContentDisposition: `attachment; filename="${downloadName.replace(/"/g, "")}"`,
+        }
       : {}),
   });
 
-  return getSignedUrl(s3, command, { expiresIn: PHOTO_PREVIEW_EXPIRES_SECONDS });
+  return getSignedUrl(s3, command, {
+    expiresIn: PHOTO_PREVIEW_EXPIRES_SECONDS,
+  });
 }
 
 async function decoratePhoto(photo) {
@@ -245,7 +272,7 @@ async function decoratePhoto(photo) {
     ...photo,
     url,
     downloadUrl: `/api/photos/download?key=${encodeURIComponent(photo.key)}&filename=${encodeURIComponent(
-      photo.originalName || "foto.webp"
+      photo.originalName || "foto.webp",
     )}`,
   };
 }
@@ -259,9 +286,12 @@ function leaderboardFromSubmissions(submissions) {
 
     if (
       !previous ||
-      (item.correctAnswers ?? item.score) > (previous.correctAnswers ?? previous.score) ||
-      ((item.correctAnswers ?? item.score) === (previous.correctAnswers ?? previous.score) &&
-        (item.elapsedMs ?? Number.MAX_SAFE_INTEGER) < (previous.elapsedMs ?? Number.MAX_SAFE_INTEGER))
+      (item.correctAnswers ?? item.score) >
+        (previous.correctAnswers ?? previous.score) ||
+      ((item.correctAnswers ?? item.score) ===
+        (previous.correctAnswers ?? previous.score) &&
+        (item.elapsedMs ?? Number.MAX_SAFE_INTEGER) <
+          (previous.elapsedMs ?? Number.MAX_SAFE_INTEGER))
     ) {
       byEmail.set(key, item);
     }
@@ -269,9 +299,12 @@ function leaderboardFromSubmissions(submissions) {
 
   return Array.from(byEmail.values())
     .sort((a, b) => {
-      const correctDifference = (b.correctAnswers ?? b.score) - (a.correctAnswers ?? a.score);
+      const correctDifference =
+        (b.correctAnswers ?? b.score) - (a.correctAnswers ?? a.score);
       if (correctDifference !== 0) return correctDifference;
-      const timeDifference = (a.elapsedMs ?? Number.MAX_SAFE_INTEGER) - (b.elapsedMs ?? Number.MAX_SAFE_INTEGER);
+      const timeDifference =
+        (a.elapsedMs ?? Number.MAX_SAFE_INTEGER) -
+        (b.elapsedMs ?? Number.MAX_SAFE_INTEGER);
       if (timeDifference !== 0) return timeDifference;
       return new Date(a.createdAt) - new Date(b.createdAt);
     })
@@ -280,7 +313,9 @@ function leaderboardFromSubmissions(submissions) {
       name: item.name,
       surname: item.surname,
       score: item.score,
-      correctAnswers: Number.isFinite(item.correctAnswers) ? item.correctAnswers : item.score,
+      correctAnswers: Number.isFinite(item.correctAnswers)
+        ? item.correctAnswers
+        : item.score,
       total: item.total,
       elapsedMs: Number.isFinite(item.elapsedMs) ? item.elapsedMs : null,
       createdAt: item.createdAt,
@@ -304,15 +339,27 @@ app.post("/api/photos/presign", async (req, res) => {
   const type = cleanText(req.body.type || "image/webp", 80);
 
   if (!uploaderName || uploaderName.split(" ").length < 2) {
-    return jsonError(res, 400, "Inserisci nome e cognome di chi carica la foto.");
+    return jsonError(
+      res,
+      400,
+      "Inserisci nome e cognome di chi carica la foto.",
+    );
   }
 
   if (type !== "image/webp") {
-    return jsonError(res, 400, "Le foto devono essere compresse in WebP prima del caricamento.");
+    return jsonError(
+      res,
+      400,
+      "Le foto devono essere compresse in WebP prima del caricamento.",
+    );
   }
 
   if (!size || size > MAX_UPLOAD_MB * 1024 * 1024) {
-    return jsonError(res, 400, `La foto supera il limite di ${MAX_UPLOAD_MB}MB.`);
+    return jsonError(
+      res,
+      400,
+      `La foto supera il limite di ${MAX_UPLOAD_MB}MB.`,
+    );
   }
 
   const key = `photos/${Date.now()}-${crypto.randomUUID()}-${originalName.replace(/\.[^.]+$/, "")}.webp`;
@@ -327,7 +374,9 @@ app.post("/api/photos/presign", async (req, res) => {
     },
   });
 
-  const uploadUrl = await getSignedUrl(s3, command, { expiresIn: SIGNED_URL_EXPIRES_SECONDS });
+  const uploadUrl = await getSignedUrl(s3, command, {
+    expiresIn: SIGNED_URL_EXPIRES_SECONDS,
+  });
 
   return jsonOk(res, {
     key,
@@ -344,7 +393,11 @@ app.post("/api/photos/confirm", async (req, res) => {
   const originalName = cleanText(req.body.originalName || "foto.webp", 160);
   const size = Number(req.body.size || 0);
 
-  if (!key.startsWith("photos/") || !uploaderName || uploaderName.split(" ").length < 2) {
+  if (
+    !key.startsWith("photos/") ||
+    !uploaderName ||
+    uploaderName.split(" ").length < 2
+  ) {
     return jsonError(res, 400, "Dati foto non validi.");
   }
 
@@ -354,14 +407,22 @@ app.post("/api/photos/confirm", async (req, res) => {
       new HeadObjectCommand({
         Bucket: process.env.R2_BUCKET,
         Key: key,
-      })
+      }),
     );
 
     if (uploaded.ContentType !== "image/webp") {
-      return jsonError(res, 400, "Il file caricato non è un'immagine WebP valida.");
+      return jsonError(
+        res,
+        400,
+        "Il file caricato non è un'immagine WebP valida.",
+      );
     }
   } catch {
-    return jsonError(res, 400, "Foto non trovata su Cloudflare R2. Riprova il caricamento.");
+    return jsonError(
+      res,
+      400,
+      "Foto non trovata su Cloudflare R2. Riprova il caricamento.",
+    );
   }
 
   const saved = await mutateData((data) => {
@@ -391,7 +452,9 @@ app.get("/api/photos", async (req, res) => {
   const search = cleanText(req.query.search || "", 120).toLowerCase();
 
   const filtered = data.photos
-    .filter((photo) => !search || photo.uploaderName.toLowerCase().includes(search))
+    .filter(
+      (photo) => !search || photo.uploaderName.toLowerCase().includes(search),
+    )
     .slice(0, limit);
 
   const photos = await Promise.all(filtered.map(decoratePhoto));
@@ -400,7 +463,10 @@ app.get("/api/photos", async (req, res) => {
 
 app.get("/api/photos/download", async (req, res) => {
   const key = cleanText(req.query.key, 260);
-  const filename = cleanText(req.query.filename || "foto-gloria-beniamino.webp", 160);
+  const filename = cleanText(
+    req.query.filename || "foto-gloria-beniamino.webp",
+    160,
+  );
 
   if (!key.startsWith("photos/")) {
     return jsonError(res, 400, "Chiave foto non valida.");
@@ -443,12 +509,14 @@ app.post("/api/messages", async (req, res) => {
 app.get("/api/quiz/questions", async (req, res) => {
   const data = await loadData();
 
-  const questions = data.quiz.questions.map(({ id, intro, question, answers }) => ({
-    id,
-    intro,
-    question,
-    answers,
-  }));
+  const questions = data.quiz.questions.map(
+    ({ id, intro, question, answers }) => ({
+      id,
+      intro,
+      question,
+      answers,
+    }),
+  );
 
   return jsonOk(res, { questions });
 });
@@ -458,7 +526,10 @@ app.post("/api/quiz/submit", async (req, res) => {
   const surname = cleanText(req.body.surname, 80);
   const email = cleanEmail(req.body.email);
   const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
-  const elapsedMs = Math.min(Math.max(Number(req.body.elapsedMs) || 0, 0), 7_200_000);
+  const elapsedMs = Math.min(
+    Math.max(Number(req.body.elapsedMs) || 0, 0),
+    7_200_000,
+  );
 
   if (!name || !surname || !email.includes("@")) {
     return jsonError(res, 400, "Nome, cognome ed email sono obbligatori.");
@@ -470,7 +541,11 @@ app.post("/api/quiz/submit", async (req, res) => {
 
     for (const question of questions) {
       const answer = answers.find((item) => item.questionId === question.id);
-      if (answer && Number(answer.answerIndex) === Number(question.correctIndex)) correctAnswers += 1;
+      if (
+        answer &&
+        Number(answer.answerIndex) === Number(question.correctIndex)
+      )
+        correctAnswers += 1;
     }
 
     const elapsedSeconds = Math.floor(elapsedMs / 1000);
@@ -504,7 +579,11 @@ app.post("/api/quiz/submit", async (req, res) => {
 
 app.post("/api/admin/login", async (req, res) => {
   if (!assertAdminCredentialsAreConfigured()) {
-    return jsonError(res, 503, "Configura ADMIN_PASS nel file .env prima di usare l’area riservata.");
+    return jsonError(
+      res,
+      503,
+      "Configura ADMIN_PASS nel file .env prima di usare l’area riservata.",
+    );
   }
 
   const username = cleanText(req.body.username, 80);
@@ -538,7 +617,9 @@ app.get("/api/admin/photos", requireAdmin, async (req, res) => {
 
 app.delete("/api/admin/photos", requireAdmin, async (req, res) => {
   const keys = Array.isArray(req.body.keys)
-    ? req.body.keys.map((key) => cleanText(key, 260)).filter((key) => key.startsWith("photos/"))
+    ? req.body.keys
+        .map((key) => cleanText(key, 260))
+        .filter((key) => key.startsWith("photos/"))
     : [];
 
   if (!keys.length) {
@@ -555,7 +636,7 @@ app.delete("/api/admin/photos", requireAdmin, async (req, res) => {
           Objects: keys.map((Key) => ({ Key })),
           Quiet: true,
         },
-      })
+      }),
     );
     r2Deleted = true;
   }
@@ -587,6 +668,19 @@ app.patch("/api/admin/messages/:id/read", requireAdmin, async (req, res) => {
   return jsonOk(res, { message: updated });
 });
 
+app.delete("/api/admin/messages/:id", requireAdmin, async (req, res) => {
+  const id = cleanText(req.params.id, 80);
+
+  const removed = await mutateData((data) => {
+    const before = data.messages.length;
+    data.messages = data.messages.filter((message) => message.id !== id);
+    return before !== data.messages.length;
+  });
+
+  if (!removed) return jsonError(res, 404, "Messaggio non trovato.");
+  return jsonOk(res, { removed: true });
+});
+
 app.get("/api/admin/quiz", requireAdmin, async (req, res) => {
   const data = await loadData();
   return jsonOk(res, {
@@ -599,12 +693,24 @@ app.get("/api/admin/quiz", requireAdmin, async (req, res) => {
 app.post("/api/admin/quiz/questions", requireAdmin, async (req, res) => {
   const question = cleanText(req.body.question, 300);
   const answers = Array.isArray(req.body.answers)
-    ? req.body.answers.map((answer) => cleanText(answer, 160)).filter(Boolean).slice(0, 6)
+    ? req.body.answers
+        .map((answer) => cleanText(answer, 160))
+        .filter(Boolean)
+        .slice(0, 6)
     : [];
   const correctIndex = Number(req.body.correctIndex);
 
-  if (!question || answers.length < 2 || correctIndex < 0 || correctIndex >= answers.length) {
-    return jsonError(res, 400, "Domanda, almeno due risposte e risposta corretta sono obbligatorie.");
+  if (
+    !question ||
+    answers.length < 2 ||
+    correctIndex < 0 ||
+    correctIndex >= answers.length
+  ) {
+    return jsonError(
+      res,
+      400,
+      "Domanda, almeno due risposte e risposta corretta sono obbligatorie.",
+    );
   }
 
   const saved = await mutateData((data) => {
@@ -626,12 +732,24 @@ app.put("/api/admin/quiz/questions/:id", requireAdmin, async (req, res) => {
   const id = cleanText(req.params.id, 80);
   const question = cleanText(req.body.question, 300);
   const answers = Array.isArray(req.body.answers)
-    ? req.body.answers.map((answer) => cleanText(answer, 160)).filter(Boolean).slice(0, 6)
+    ? req.body.answers
+        .map((answer) => cleanText(answer, 160))
+        .filter(Boolean)
+        .slice(0, 6)
     : [];
   const correctIndex = Number(req.body.correctIndex);
 
-  if (!question || answers.length < 2 || correctIndex < 0 || correctIndex >= answers.length) {
-    return jsonError(res, 400, "Domanda, almeno due risposte e risposta corretta sono obbligatorie.");
+  if (
+    !question ||
+    answers.length < 2 ||
+    correctIndex < 0 ||
+    correctIndex >= answers.length
+  ) {
+    return jsonError(
+      res,
+      400,
+      "Domanda, almeno due risposte e risposta corretta sono obbligatorie.",
+    );
   }
 
   const updated = await mutateData((data) => {
@@ -653,7 +771,9 @@ app.delete("/api/admin/quiz/questions/:id", requireAdmin, async (req, res) => {
 
   const removed = await mutateData((data) => {
     const before = data.quiz.questions.length;
-    data.quiz.questions = data.quiz.questions.filter((entry) => entry.id !== id);
+    data.quiz.questions = data.quiz.questions.filter(
+      (entry) => entry.id !== id,
+    );
     return before !== data.quiz.questions.length;
   });
 
@@ -671,7 +791,12 @@ app.use((req, res) => {
 
 app.use((error, req, res, next) => {
   console.error(error);
-  return jsonError(res, 500, "Errore interno del server.", process.env.NODE_ENV === "production" ? undefined : error.message);
+  return jsonError(
+    res,
+    500,
+    "Errore interno del server.",
+    process.env.NODE_ENV === "production" ? undefined : error.message,
+  );
 });
 
 app.listen(PORT, () => {
