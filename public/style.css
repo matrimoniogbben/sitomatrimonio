@@ -1262,7 +1262,7 @@ textarea {
 .admin-leaderboard-list li {
   display: grid;
   padding: 0.85rem 0;
-  grid-template-columns: 38px 1fr auto;
+  grid-template-columns: 38px 1fr auto 32px;
   gap: 0.75rem;
   align-items: center;
   border-bottom: 1px solid var(--line);
@@ -1278,6 +1278,20 @@ textarea {
 .admin-leaderboard-list .score {
   color: var(--wine);
   font-size: 0.8rem;
+}
+.remove-submission {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--wine);
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.remove-submission:hover {
+  border-color: var(--wine);
+  background: var(--wine);
+  color: #fff;
 }
 
 .reveal {

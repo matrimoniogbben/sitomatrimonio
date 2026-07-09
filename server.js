@@ -281,7 +281,7 @@ function leaderboardFromSubmissions(submissions) {
   const byEmail = new Map();
 
   for (const item of submissions || []) {
-    const key = item.email || `${item.name}-${item.surname}`;
+    const key = `${item.name}-${item.surname}`.toLowerCase();
     const previous = byEmail.get(key);
 
     if (
@@ -309,6 +309,7 @@ function leaderboardFromSubmissions(submissions) {
       return new Date(a.createdAt) - new Date(b.createdAt);
     })
     .map((item, index) => ({
+      id: item.id,
       position: index + 1,
       name: item.name,
       surname: item.surname,
@@ -524,18 +525,24 @@ app.get("/api/quiz/questions", async (req, res) => {
 app.post("/api/quiz/submit", async (req, res) => {
   const name = cleanText(req.body.name, 80);
   const surname = cleanText(req.body.surname, 80);
-  const email = cleanEmail(req.body.email);
   const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
   const elapsedMs = Math.min(
     Math.max(Number(req.body.elapsedMs) || 0, 0),
     7_200_000,
   );
 
-  if (!name || !surname || !email.includes("@")) {
-    return jsonError(res, 400, "Nome, cognome ed email sono obbligatori.");
+  if (!name || !surname) {
+    return jsonError(res, 400, "Nome e cognome sono obbligatori.");
   }
 
   const saved = await mutateData((data) => {
+    const alreadyPlayed = data.quiz.submissions.some(
+      (item) =>
+        item.name.toLowerCase() === name.toLowerCase() &&
+        item.surname.toLowerCase() === surname.toLowerCase(),
+    );
+    if (alreadyPlayed) return null;
+
     const questions = data.quiz.questions;
     let correctAnswers = 0;
 
@@ -555,7 +562,6 @@ app.post("/api/quiz/submit", async (req, res) => {
       id: crypto.randomUUID(),
       name,
       surname,
-      email,
       score,
       correctAnswers,
       total: questions.length,
@@ -566,6 +572,14 @@ app.post("/api/quiz/submit", async (req, res) => {
     data.quiz.submissions.unshift(submission);
     return submission;
   });
+
+  if (!saved) {
+    return jsonError(
+      res,
+      409,
+      "Hai già partecipato al quiz. Chiedi agli sposi se vuoi riprovare.",
+    );
+  }
 
   return jsonOk(res, {
     result: {
@@ -689,6 +703,24 @@ app.get("/api/admin/quiz", requireAdmin, async (req, res) => {
     leaderboard: leaderboardFromSubmissions(data.quiz.submissions),
   });
 });
+
+app.delete(
+  "/api/admin/quiz/submissions/:id",
+  requireAdmin,
+  async (req, res) => {
+    const id = cleanText(req.params.id, 80);
+    const removed = await mutateData((data) => {
+      const before = data.quiz.submissions.length;
+      data.quiz.submissions = data.quiz.submissions.filter(
+        (submission) => submission.id !== id,
+      );
+      return before !== data.quiz.submissions.length;
+    });
+
+    if (!removed) return jsonError(res, 404, "Partecipante non trovato.");
+    return jsonOk(res, { removed: true });
+  },
+);
 
 app.post("/api/admin/quiz/questions", requireAdmin, async (req, res) => {
   const question = cleanText(req.body.question, 300);

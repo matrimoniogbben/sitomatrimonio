@@ -3,6 +3,10 @@ const $$ = (selector, root = document) =>
   Array.from(root.querySelectorAll(selector));
 
 const page = document.body.dataset.page;
+const apiBaseUrl = String(window.APP_CONFIG?.apiBaseUrl || "").replace(
+  /\/+$/,
+  "",
+);
 
 const state = {
   quiz: {
@@ -102,7 +106,7 @@ async function api(path, options = {}) {
     headers.Authorization = `Bearer ${state.adminToken}`;
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
     ...options,
     headers,
     body:
@@ -219,7 +223,6 @@ async function initQuiz() {
     state.quiz.participant = {
       name: participant.name.trim(),
       surname: participant.surname.trim(),
-      email: participant.email.trim(),
     };
     state.quiz.current = 0;
     state.quiz.answers = new Array(state.quiz.questions.length).fill(null);
@@ -860,11 +863,28 @@ function renderAdminLeaderboard(search = "") {
             <span class="rank">${row.position}</span>
             <span><strong>${escapeHtml(row.name)} ${escapeHtml(row.surname)}</strong><small>${row.correctAnswers}/${row.total} risposte corrette</small></span>
             <span class="score">${formatElapsed(row.elapsedMs)}</span>
+            <button class="remove-submission" type="button" data-delete-submission="${escapeAttr(row.id)}" aria-label="Elimina ${escapeAttr(row.name)} ${escapeAttr(row.surname)}">×</button>
           </li>
         `,
         )
         .join("")
     : `<li class="empty-line">Nessun invitato trovato.</li>`;
+
+  $$("[data-delete-submission]", root).forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (
+        !confirm(
+          "Eliminare questo partecipante dalla classifica? Potrà rifare il quiz.",
+        )
+      )
+        return;
+      await api(
+        `/api/admin/quiz/submissions/${button.dataset.deleteSubmission}`,
+        { method: "DELETE" },
+      );
+      await loadAdminAll(false);
+    });
+  });
 }
 
 async function saveQuizQuestion(event) {
@@ -878,7 +898,7 @@ async function saveQuizQuestion(event) {
     .filter(Boolean);
 
   const payload = {
-    question: String(formData.get("question") || "").trim(),
+    question: String(new FormData(form).get("question") || "").trim(),
     answers,
     correctIndex: Number(formData.get("correctIndex")),
   };
