@@ -1,0 +1,29 @@
+{
+  "name": "gloria-beniamino-wedding",
+  "version": "1.0.0",
+  "description": "Sito matrimonio Soft Luxury per Gloria & Beniamino con album R2, quiz e area admin.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "wedding",
+    "express",
+    "cloudflare-r2",
+    "vanilla-js"
+  ],
+  "author": "Gloria & Beniamino",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.632.0",
+    "@aws-sdk/s3-request-presigner": "^3.632.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
