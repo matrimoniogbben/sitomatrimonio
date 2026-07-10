@@ -41,6 +41,7 @@ app.use(
   }),
 );
 app.use(express.json({ limit: "1mb" }));
+app.use(express.text({ type: "text/plain", limit: "1mb" }));
 app.use(
   express.static(path.join(__dirname, "public"), { extensions: ["html"] }),
 );
@@ -559,8 +560,16 @@ app.get("/api/quiz/participation", async (req, res) => {
 });
 
 app.post("/api/quiz/abandon", async (req, res) => {
-  const name = cleanText(req.body.name, 80);
-  const surname = cleanText(req.body.surname, 80);
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      return jsonError(res, 400, "Dati tentativo non validi.");
+    }
+  }
+  const name = cleanText(body?.name, 80);
+  const surname = cleanText(body?.surname, 80);
   if (!name || !surname) return jsonOk(res, { recorded: false });
 
   const saved = await mutateData((data) => {

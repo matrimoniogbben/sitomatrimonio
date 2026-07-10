@@ -354,8 +354,8 @@ async function initQuiz() {
     if (!state.quiz.inProgress || !state.quiz.participant) return;
     const payload = JSON.stringify(state.quiz.participant);
     navigator.sendBeacon(
-      "/api/quiz/abandon",
-      new Blob([payload], { type: "application/json" }),
+      `${apiBaseUrl}/api/quiz/abandon`,
+      new Blob([payload], { type: "text/plain" }),
     );
   });
 }
