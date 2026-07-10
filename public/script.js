@@ -40,6 +40,13 @@ document.addEventListener("DOMContentLoaded", () => {
   if (page === "home") initHome();
   if (page === "album") initAlbum();
   if (page === "admin") initAdmin();
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-download]");
+    if (!button) return;
+    event.preventDefault();
+    triggerDownload(button.dataset.download, button.dataset.filename);
+  });
 });
 
 function initNavigation() {
@@ -373,7 +380,8 @@ async function initQuiz() {
   window.addEventListener("beforeunload", (event) => {
     if (!state.quiz.inProgress) return;
     event.preventDefault();
-    event.returnValue = "";
+    event.returnValue = " ";
+    try { sessionStorage.setItem("quizAbandoned", "true"); } catch {}
   });
 
   window.addEventListener("pagehide", () => {
@@ -385,6 +393,7 @@ async function initQuiz() {
     );
   });
 
+  checkQuizAbandonedOnReload();
   initQuizNavigationGuard();
 }
 
@@ -430,6 +439,32 @@ function showQuizAbandonDialog(navigateTo) {
       window.location.href = navigateTo;
     }
   });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) close();
+  });
+}
+
+function checkQuizAbandonedOnReload() {
+  let abandoned = false;
+  try { abandoned = sessionStorage.getItem("quizAbandoned") === "true"; } catch {}
+  try { sessionStorage.removeItem("quizAbandoned"); } catch {}
+  if (!abandoned) return;
+  const total = state.quiz.questions.length;
+  const dialog = document.createElement("div");
+  dialog.className = "success-dialog";
+  dialog.setAttribute("role", "dialog");
+  dialog.setAttribute("aria-modal", "true");
+  dialog.innerHTML = `
+    <div class="success-dialog-card">
+      <img src="assets/couple-mark.png" alt="Gloria e Beniamino">
+      <p class="eyebrow">Quiz terminato</p>
+      <h2>Hai abbandonato il quiz</h2>
+      <p>Ricaricando la pagina il quiz è stato segnato come 0/${total}. Per rifarlo contatta gli sposi.</p>
+      <button class="btn btn-primary" type="button" data-close-success-dialog>Ho capito</button>
+    </div>`;
+  document.body.appendChild(dialog);
+  const close = () => dialog.remove();
+  $("[data-close-success-dialog]", dialog)?.addEventListener("click", close);
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) close();
   });
@@ -872,7 +907,7 @@ async function loadGallery(
           ${state.gallery.selecting ? `<label class="photo-select"><input type="checkbox" value="${escapeAttr(photo.key)}" ${state.gallery.selected.has(photo.key) ? "checked" : ""}> Seleziona</label>` : ""}
           <div class="gallery-caption">
             <span><strong>${escapeHtml(photo.uploaderName)}</strong><small>${formatDate(photo.createdAt)}</small></span>
-            <a class="download-pill" href="${escapeAttr(apiUrl(photo.downloadUrl))}" target="_blank" rel="noreferrer">Scarica</a>
+            <button class="download-pill" type="button" data-download="${escapeAttr(photo.downloadUrl)}" data-filename="${escapeAttr(photo.originalName || "foto-gloria-beniamino.jpg")}">Scarica</button>
           </div>
         </article>
       `,
@@ -937,7 +972,7 @@ async function downloadSelectedPhotos() {
     data.photos
       .filter((photo) => keys.includes(photo.key))
       .forEach((photo, index) => {
-        window.setTimeout(() => window.open(apiUrl(photo.downloadUrl), "_blank"), index * 500);
+        setTimeout(() => triggerDownload(photo.downloadUrl, photo.originalName), index * 500);
       });
   } catch (error) {
     alert(error.message);
@@ -1100,7 +1135,7 @@ function downloadSelectedAdminPhotos() {
   keys.forEach((key, index) => {
     const photo = state.adminPhotos.find((item) => item.key === key);
     if (!photo) return;
-    window.setTimeout(() => window.open(apiUrl(photo.downloadUrl), "_blank"), index * 500);
+    setTimeout(() => triggerDownload(photo.downloadUrl, photo.originalName), index * 500);
   });
 }
 
@@ -1520,5 +1555,23 @@ function escapeHtml(value) {
 
 function escapeAttr(value) {
   return escapeHtml(value);
+}
+
+async function triggerDownload(url, filename) {
+  try {
+    const response = await fetch(url, { credentials: "include" });
+    if (!response.ok) throw new Error();
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename || "foto-gloria-beniamino.jpg";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  } catch {
+    window.open(url, "_blank");
+  }
 }
 
