@@ -31,6 +31,7 @@ const SIGNED_URL_EXPIRES_SECONDS = Number(
 const PHOTO_PREVIEW_EXPIRES_SECONDS = Number(
   process.env.PHOTO_PREVIEW_EXPIRES_SECONDS || 900,
 );
+const R2_DATA_KEY = process.env.R2_DATA_KEY || "site-data/data.json";
 
 app.use(
   cors({
@@ -177,14 +178,8 @@ async function ensureDataFile() {
   }
 }
 
-async function loadData() {
-  if (dataCache) return dataCache;
-
-  await ensureDataFile();
-  const raw = await readFile(DATA_FILE, "utf8");
-  const parsed = JSON.parse(raw);
-
-  dataCache = {
+function normalizeData(parsed) {
+  return {
     photos: Array.isArray(parsed.photos) ? parsed.photos : [],
     messages: Array.isArray(parsed.messages) ? parsed.messages : [],
     quiz: {
@@ -196,6 +191,33 @@ async function loadData() {
         : [],
     },
   };
+}
+
+async function loadLocalData() {
+  await ensureDataFile();
+  const raw = await readFile(DATA_FILE, "utf8");
+  return normalizeData(JSON.parse(raw));
+}
+
+async function loadData() {
+  if (dataCache) return dataCache;
+
+  if (!s3) {
+    dataCache = await loadLocalData();
+    return dataCache;
+  }
+
+  try {
+    const object = await s3.send(
+      new GetObjectCommand({ Bucket: process.env.R2_BUCKET, Key: R2_DATA_KEY }),
+    );
+    dataCache = normalizeData(JSON.parse(await object.Body.transformToString()));
+  } catch (error) {
+    if (error.name !== "NoSuchKey" && error.Code !== "NoSuchKey") throw error;
+    // First R2-backed deployment: preserve the existing Render JSON once.
+    dataCache = await loadLocalData();
+    await persistData(dataCache);
+  }
 
   return dataCache;
 }
@@ -204,6 +226,16 @@ async function persistData(data) {
   data.updatedAt = new Date().toISOString();
   await mkdir(path.dirname(DATA_FILE), { recursive: true });
   await writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf8");
+  if (s3) {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET,
+        Key: R2_DATA_KEY,
+        ContentType: "application/json",
+        Body: JSON.stringify(data),
+      }),
+    );
+  }
   dataCache = data;
 }
 
@@ -473,15 +505,20 @@ app.get("/api/photos", async (req, res) => {
   const page = Math.max(Number(req.query.page || 1), 1);
   const search = cleanText(req.query.search || "", 120).toLowerCase();
   const date = cleanText(req.query.date || "", 10);
+  const time = cleanText(req.query.time || "", 5);
 
   if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return jsonError(res, 400, "Data filtro non valida.");
+  }
+  if (time && !/^\d{2}:\d{2}$/.test(time)) {
+    return jsonError(res, 400, "Orario filtro non valido.");
   }
 
   const filtered = data.photos.filter(
     (photo) =>
       (!search || photo.uploaderName.toLowerCase().includes(search)) &&
-      (!date || photo.createdAt?.slice(0, 10) === date),
+      (!date || photo.createdAt?.slice(0, 10) === date) &&
+      (!time || photo.createdAt?.slice(11, 16) === time),
   );
   const offset = (page - 1) * limit;
   const photos = await Promise.all(

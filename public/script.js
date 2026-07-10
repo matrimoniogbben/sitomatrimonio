@@ -24,7 +24,7 @@ const state = {
   adminPhotos: [],
   adminPages: { photos: 1, messages: 1, contacts: 1, questions: 1, leaderboard: 1 },
   adminQuestionOrderDirty: false,
-  gallery: { page: 1, search: "", date: "", selecting: false, selected: new Set() },
+  gallery: { page: 1, search: "", date: "", time: "", selecting: false, selected: new Set() },
   upload: { files: [], previewUrls: [] },
 };
 
@@ -465,6 +465,8 @@ function initAlbum() {
   initUploadPreview();
   initGallerySearch();
   initGalleryDateFilter();
+  initGalleryTimeFilter();
+  initGalleryClearFilters();
   initGallerySelection();
   loadGallery();
 }
@@ -734,10 +736,40 @@ function initGalleryDateFilter() {
   });
 }
 
+function initGalleryTimeFilter() {
+  const time = $("[data-photo-time]");
+  if (!time) return;
+
+  time.addEventListener("change", () => {
+    state.gallery.time = time.value;
+    state.gallery.page = 1;
+    state.gallery.selected.clear();
+    loadGallery(state.gallery.search, 1, state.gallery.date, time.value);
+  });
+}
+
+function initGalleryClearFilters() {
+  $("[data-clear-photo-filters]")?.addEventListener("click", () => {
+    state.gallery.search = "";
+    state.gallery.date = "";
+    state.gallery.time = "";
+    state.gallery.page = 1;
+    state.gallery.selected.clear();
+    const search = $("[data-photo-search]");
+    const date = $("[data-photo-date]");
+    const time = $("[data-photo-time]");
+    if (search) search.value = "";
+    if (date) date.value = "";
+    if (time) time.value = "";
+    loadGallery("", 1, "", "");
+  });
+}
+
 async function loadGallery(
   search = state.gallery.search,
   page = state.gallery.page,
   date = state.gallery.date,
+  time = state.gallery.time,
 ) {
   const gallery = $("[data-gallery]");
   if (!gallery) return;
@@ -748,7 +780,8 @@ async function loadGallery(
     state.gallery.search = search;
     state.gallery.page = page;
     state.gallery.date = date;
-    const query = `?search=${encodeURIComponent(search)}&date=${encodeURIComponent(date)}&limit=5&page=${page}`;
+    state.gallery.time = time;
+    const query = `?search=${encodeURIComponent(search)}&date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}&limit=5&page=${page}`;
     const data = await api(`/api/photos${query}`, { admin: false });
     const photos = data.photos || [];
 
@@ -814,7 +847,7 @@ function renderGalleryPagination(total, limit, currentPage) {
       : "";
   $$("[data-gallery-page]", root).forEach((button) =>
     button.addEventListener("click", () =>
-      loadGallery(state.gallery.search, Number(button.dataset.galleryPage), state.gallery.date),
+      loadGallery(state.gallery.search, Number(button.dataset.galleryPage), state.gallery.date, state.gallery.time),
     ),
   );
 }
@@ -824,7 +857,7 @@ async function downloadSelectedPhotos() {
   if (!keys.length) return;
   try {
     const data = await api(
-      `/api/photos?search=${encodeURIComponent(state.gallery.search)}&date=${encodeURIComponent(state.gallery.date)}&limit=200&page=1`,
+      `/api/photos?search=${encodeURIComponent(state.gallery.search)}&date=${encodeURIComponent(state.gallery.date)}&time=${encodeURIComponent(state.gallery.time)}&limit=200&page=1`,
       { admin: false },
     );
     data.photos
