@@ -1032,8 +1032,15 @@ textarea {
   width: min(100%, 900px);
   margin: 0 auto;
   padding: clamp(1.3rem, 4vw, 2rem);
-  grid-template-columns: 0.72fr 1.28fr;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr); /* ✅ */
   gap: clamp(2rem, 6vw, 4rem);
+  overflow: hidden;
+}
+
+.upload-form {
+  display: grid;
+  gap: 1rem;
+  min-width: 0; /* ✅ evita che la colonna si allarghi in base al contenuto */
 }
 .upload-card > div > p:not(.eyebrow) {
   color: var(--muted);
@@ -1088,24 +1095,32 @@ textarea {
   overflow: hidden;
 }
 .upload-carousel {
-  display: grid;
-  gap: 0.6rem;
-  max-width: 100%;
-  min-width: 0;
+  display: block;
+  width: 100%;
+  margin-bottom: 1rem; /* Spazio sotto l'area dell'immagine */
 }
+
 .upload-carousel-frame {
   position: relative;
   width: 100%;
   max-width: 420px;
   margin: 0 auto;
   overflow: hidden;
-  min-width: 0;
-}
-.upload-carousel-frame img {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
   display: block;
+}
+.upload-carousel-frame::before {
+  content: "";
+  display: block;
+  padding-top: 75%; /* Mantiene le proporzioni 4:3 */
+}
+
+.upload-carousel-frame img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   background: var(--ivory);
   border-radius: 6px;
 }
@@ -1113,14 +1128,17 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: 0.5rem; /* Ridotto per avvicinare i bottoni */
+  margin-top: 1.5rem;
+  width: 100%; /* Forza il blocco a stare dentro i limiti del genitore */
+  max-width: 420px; /* Allineato alla larghezza del frame dell'immagine */
+  margin-left: auto; /* Centra il blocco se il genitore è più largo */
+  margin-right: auto;
 }
 .upload-carousel-counter {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--muted);
-  min-width: 5rem;
+  min-width: 3rem; /* Ridotto da 5rem per evitare che occupi troppo spazio */
   text-align: center;
+  font-size: 0.8rem;
 }
 .remove-preview {
   position: absolute;
@@ -1667,6 +1685,9 @@ textarea {
   .upload-card,
   .admin-quiz-layout {
     grid-template-columns: 1fr;
+  }
+  .upload-card {
+    overflow: hidden;
   }
   .event-card {
     padding: 1.25rem;

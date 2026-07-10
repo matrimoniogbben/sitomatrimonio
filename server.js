@@ -44,7 +44,7 @@ app.use(
     credentials: true,
   }),
 );
-app.set("trust proxy", true);
+app.set("trust proxy", 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   rateLimit({
