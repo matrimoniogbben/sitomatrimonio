@@ -900,6 +900,37 @@ textarea {
   color: var(--muted);
   font-size: 0.76rem;
 }
+.upload-preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.upload-preview figure {
+  min-width: 0;
+  margin: 0;
+}
+.upload-preview img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+.upload-preview figcaption {
+  overflow: hidden;
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preview-more {
+  display: grid;
+  aspect-ratio: 1;
+  background: var(--gold-pale);
+  color: var(--wine);
+  font-size: 0.8rem;
+  font-weight: 600;
+  place-items: center;
+}
 .upload-line {
   padding: 0.55rem 0.65rem;
   background: var(--ivory);

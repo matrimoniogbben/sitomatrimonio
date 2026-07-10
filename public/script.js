@@ -365,6 +365,7 @@ function showQuizResult(message) {
 function initAlbum() {
   initUpload();
   initDropzone();
+  initUploadPreview();
   initGallerySearch();
   loadGallery();
 }
@@ -389,8 +390,40 @@ function initDropzone() {
 
   dropzone.addEventListener("drop", (event) => {
     const input = $("input[type='file']", dropzone);
-    if (input && event.dataTransfer?.files?.length)
+    if (input && event.dataTransfer?.files?.length) {
       input.files = event.dataTransfer.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  });
+}
+
+function initUploadPreview() {
+  const form = $("[data-upload-form]");
+  const preview = $("[data-upload-preview]");
+  const input = $("input[type='file']", form);
+  if (!input || !preview) return;
+
+  input.addEventListener("change", () => {
+    const files = Array.from(input.files || []);
+    if (!files.length) {
+      preview.replaceChildren();
+      return;
+    }
+
+    preview.innerHTML = files
+      .slice(0, 6)
+      .map((file) => {
+        const url = URL.createObjectURL(file);
+        return `<figure><img src="${escapeAttr(url)}" alt="Anteprima ${escapeAttr(file.name)}"><figcaption>${escapeHtml(file.name)}</figcaption></figure>`;
+      })
+      .join("");
+
+    if (files.length > 6) {
+      preview.insertAdjacentHTML(
+        "beforeend",
+        `<span class="preview-more">+${files.length - 6}</span>`,
+      );
+    }
   });
 }
 
@@ -467,6 +500,7 @@ function initUpload() {
     }
 
     form.reset();
+    $("[data-upload-preview]")?.replaceChildren();
     await loadGallery();
   });
 }
