@@ -1085,17 +1085,19 @@ textarea {
 .upload-carousel {
   display: grid;
   gap: 0.6rem;
+  max-width: 100%;
 }
 .upload-carousel-frame {
   position: relative;
   width: 100%;
   max-width: 420px;
   margin: 0 auto;
+  overflow: hidden;
 }
 .upload-carousel-frame img {
   width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
+  max-height: 55vh;
+  object-fit: contain;
   display: block;
   background: var(--ivory);
   border-radius: 6px;
