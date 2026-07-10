@@ -392,7 +392,12 @@ async function initQuiz() {
     if (!state.quiz.inProgress) return;
     event.preventDefault();
     event.returnValue = " ";
-    try { sessionStorage.setItem("quizAbandoned", "true"); } catch {}
+    try {
+      sessionStorage.setItem("quizAbandoned", "true");
+      if (state.quiz.participant) {
+        sessionStorage.setItem("quizParticipant", JSON.stringify(state.quiz.participant));
+      }
+    } catch {}
   });
 
   document.addEventListener("keydown", (event) => {
@@ -420,7 +425,14 @@ async function initQuiz() {
       $("[data-cancel-reload]", dialog)?.addEventListener("click", close);
       $("[data-confirm-reload]", dialog)?.addEventListener("click", () => {
         close();
-        try { sessionStorage.setItem("quizAbandoned", "true"); } catch {}
+        const payload = JSON.stringify(state.quiz.participant);
+        fetch(`${apiBaseUrl}/api/quiz/abandon`, { method: "POST", headers: { "Content-Type": "text/plain" }, body: payload, keepalive: true }).catch(() => {});
+        try {
+          sessionStorage.setItem("quizAbandoned", "true");
+          if (state.quiz.participant) {
+            sessionStorage.setItem("quizParticipant", JSON.stringify(state.quiz.participant));
+          }
+        } catch {}
         window.location.reload();
       });
       dialog.addEventListener("click", (event) => {
@@ -491,10 +503,17 @@ function showQuizAbandonDialog(navigateTo) {
 
 function checkQuizAbandonedOnReload() {
   let abandoned = false;
-  try { abandoned = sessionStorage.getItem("quizAbandoned") === "true"; } catch {}
-  try { sessionStorage.removeItem("quizAbandoned"); } catch {}
+  let stored = null;
+  try {
+    abandoned = sessionStorage.getItem("quizAbandoned") === "true";
+    const raw = sessionStorage.getItem("quizParticipant");
+    if (raw) stored = JSON.parse(raw);
+  } catch {}
+  try { sessionStorage.removeItem("quizAbandoned"); sessionStorage.removeItem("quizParticipant"); } catch {}
   if (!abandoned) return;
-  const total = state.quiz.questions.length;
+  if (stored?.name && stored?.surname) {
+    fetch(`${apiBaseUrl}/api/quiz/abandon`, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(stored), keepalive: true }).catch(() => {});
+  }
   const dialog = document.createElement("div");
   dialog.className = "success-dialog";
   dialog.setAttribute("role", "dialog");
@@ -504,7 +523,7 @@ function checkQuizAbandonedOnReload() {
       <img src="assets/couple-mark.png" alt="Gloria e Beniamino">
       <p class="eyebrow">Quiz terminato</p>
       <h2>Hai abbandonato il quiz</h2>
-      <p>Ricaricando la pagina il quiz è stato segnato come 0/${total}. Per rifarlo contatta gli sposi.</p>
+      <p>Ricaricando la pagina il quiz è stato segnato come sbagliato. Per rifarlo contatta gli sposi.</p>
       <button class="btn btn-primary" type="button" data-close-success-dialog>Ho capito</button>
     </div>`;
   document.body.appendChild(dialog);
