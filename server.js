@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import crypto from "node:crypto";
 import path from "node:path";
+import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import {
@@ -358,12 +359,8 @@ app.post("/api/photos/presign", async (req, res) => {
   const size = Number(req.body.size || 0);
   const type = cleanText(req.body.type || "image/webp", 80);
 
-  if (!uploaderName || uploaderName.split(" ").length < 2) {
-    return jsonError(
-      res,
-      400,
-      "Inserisci nome e cognome di chi carica la foto.",
-    );
+  if (!uploaderName) {
+    return jsonError(res, 400, "Inserisci il nome di chi carica la foto.");
   }
 
   if (type !== "image/webp") {
@@ -415,8 +412,7 @@ app.post("/api/photos/confirm", async (req, res) => {
 
   if (
     !key.startsWith("photos/") ||
-    !uploaderName ||
-    uploaderName.split(" ").length < 2
+    !uploaderName
   ) {
     return jsonError(res, 400, "Dati foto non validi.");
   }
@@ -476,9 +472,16 @@ app.get("/api/photos", async (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit || 5), 1), 200);
   const page = Math.max(Number(req.query.page || 1), 1);
   const search = cleanText(req.query.search || "", 120).toLowerCase();
+  const date = cleanText(req.query.date || "", 10);
+
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return jsonError(res, 400, "Data filtro non valida.");
+  }
 
   const filtered = data.photos.filter(
-    (photo) => !search || photo.uploaderName.toLowerCase().includes(search),
+    (photo) =>
+      (!search || photo.uploaderName.toLowerCase().includes(search)) &&
+      (!date || photo.createdAt?.slice(0, 10) === date),
   );
   const offset = (page - 1) * limit;
   const photos = await Promise.all(
@@ -490,18 +493,37 @@ app.get("/api/photos", async (req, res) => {
 
 app.get("/api/photos/download", async (req, res) => {
   const key = cleanText(req.query.key, 260);
-  const filename = cleanText(
+  const filename = fileBaseName(cleanText(
     req.query.filename || "foto-gloria-beniamino.webp",
     160,
-  );
+  ));
 
   if (!key.startsWith("photos/")) {
     return jsonError(res, 400, "Chiave foto non valida.");
   }
 
   if (!requireR2(res)) return;
-  const url = await signedGetUrl(key, filename);
-  return res.redirect(url);
+  const data = await loadData();
+  if (!data.photos.some((photo) => photo.key === key)) {
+    return jsonError(res, 404, "Foto non trovata.");
+  }
+
+  try {
+    const object = await s3.send(
+      new GetObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key }),
+    );
+    res.set({
+      "Content-Type": object.ContentType || "image/webp",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+    });
+    if (object.ContentLength) res.set("Content-Length", String(object.ContentLength));
+    await pipeline(object.Body, res);
+  } catch (error) {
+    if (!res.headersSent) {
+      return jsonError(res, 502, "Impossibile scaricare la foto.");
+    }
+    res.destroy(error);
+  }
 });
 
 app.post("/api/messages", async (req, res) => {

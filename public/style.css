@@ -686,9 +686,7 @@ h3 {
   scrollbar-width: thin;
 }
 .carousel-card {
-  position: relative;
   min-height: 280px;
-  overflow: hidden;
   background: var(--ivory);
   scroll-snap-align: start;
 }
@@ -698,12 +696,8 @@ h3 {
   object-fit: cover;
 }
 .photo-badge {
-  position: absolute;
-  right: 0.7rem;
-  bottom: 0.7rem;
-  left: 0.7rem;
   padding: 0.55rem 0.65rem;
-  background: rgba(251, 250, 247, 0.92);
+  background: var(--paper);
   color: var(--ink);
   font-size: 0.69rem;
   font-weight: 600;
@@ -1094,6 +1088,7 @@ textarea {
   gap: 0.5rem;
 }
 .upload-preview figure {
+  position: relative;
   min-width: 0;
   margin: 0;
 }
@@ -1110,14 +1105,16 @@ textarea {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.preview-more {
-  display: grid;
-  aspect-ratio: 1;
-  background: var(--gold-pale);
+.remove-preview {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.94);
   color: var(--wine);
-  font-size: 0.8rem;
+  font-size: 0.58rem;
   font-weight: 600;
-  place-items: center;
 }
 .upload-line {
   padding: 0.55rem 0.65rem;
@@ -1137,10 +1134,14 @@ textarea {
 .search-box {
   width: min(100%, 320px);
 }
-.search-box span {
+.search-box span,
+.date-filter span {
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 500;
+}
+.date-filter {
+  width: min(100%, 220px);
 }
 .masonry-grid {
   width: min(100%, var(--content));
@@ -1642,6 +1643,9 @@ textarea {
     flex-direction: column;
   }
   .search-box {
+    width: 100%;
+  }
+  .date-filter {
     width: 100%;
   }
 }

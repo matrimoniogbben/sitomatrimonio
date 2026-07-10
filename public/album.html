@@ -45,7 +45,7 @@
           <p class="eyebrow">📷 Album condiviso</p>
           <h1>I vostri scatti</h1>
           <p class="info-intro">
-            Questo e' l'album di tutti: scegli le foto che hai scattato e
+            Questo è l'album di tutti: scegli le foto che hai scattato e
             caricale qui per condividerle con Gloria, Beniamino e gli invitati.
           </p>
         </div>
@@ -56,16 +56,16 @@
             <p class="eyebrow">Il tuo contributo</p>
             <h2>Carica tu le foto che hai scattato</h2>
             <p>
-              Inserisci il tuo nome, scegli una o piu' foto e premi carica:
+              Inserisci il tuo nome, scegli una o più foto e premi carica:
               compariranno nell'album condiviso per tutti gli invitati.
             </p>
           </div>
           <form class="upload-form" data-upload-form>
             <label
-              >Nome e Cognome<input
+              >Nome<input
                 type="text"
                 name="uploaderName"
-                placeholder="Nome e Cognome"
+                placeholder="Es. Maria"
                 required
             /></label>
             <label class="dropzone" data-dropzone
@@ -94,7 +94,7 @@
       <section class="gallery-section section">
         <div class="gallery-toolbar reveal">
           <div>
-            <p class="eyebrow">Cerca nell'album</p>
+            <p class="eyebrow">Filtra l'album</p>
             <h2>Trova gli scatti</h2>
           </div>
           <div class="gallery-actions">
@@ -110,12 +110,16 @@
             </button>
           </div>
           <label class="search-box"
-            ><span>Cerca per nome e cognome</span
+            ><span>Cerca per nome</span
             ><input
               type="search"
-              placeholder="Es. Maria Rossi"
+              placeholder="Es. Maria"
               data-photo-search
           /></label>
+          <label class="date-filter"
+            ><span>Mostra le foto caricate il</span
+            ><input type="date" data-photo-date aria-label="Filtra foto per data" />
+          </label>
         </div>
         <div class="masonry-grid" data-gallery>
           <div class="empty-state"><p>Caricamento album...</p></div>

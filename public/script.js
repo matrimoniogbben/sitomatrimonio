@@ -24,7 +24,8 @@ const state = {
   adminPhotos: [],
   adminPages: { photos: 1, messages: 1, contacts: 1, questions: 1, leaderboard: 1 },
   adminQuestionOrderDirty: false,
-  gallery: { page: 1, search: "", selecting: false, selected: new Set() },
+  gallery: { page: 1, search: "", date: "", selecting: false, selected: new Set() },
+  upload: { files: [], previewUrls: [] },
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -187,7 +188,7 @@ async function loadPhotoCarousel() {
         (photo) => `
         <article class="carousel-card">
           <img src="${escapeAttr(photo.url)}" alt="Foto caricata da ${escapeAttr(photo.uploaderName)}" loading="lazy">
-          <span class="photo-badge"><strong>${escapeHtml(photo.uploaderName)}</strong><small>${formatDate(photo.createdAt)}</small></span>
+          <div class="photo-badge"><strong>${escapeHtml(photo.uploaderName)}</strong><small>${formatDate(photo.createdAt)}</small></div>
         </article>
       `,
       )
@@ -306,7 +307,7 @@ async function initQuiz() {
       if (check.participated) {
         startAlert?.classList.remove("hidden");
         $("h3", startAlert).textContent =
-          "Hai gia partecipato al quiz. Chiedi agli sposi se vuoi riprovare.";
+          "Hai già partecipato al quiz. Chiedi agli sposi se vuoi riprovare.";
         return;
       }
     } catch (error) {
@@ -347,7 +348,7 @@ async function initQuiz() {
   window.addEventListener("beforeunload", (event) => {
     if (!state.quiz.inProgress) return;
     event.preventDefault();
-    event.returnValue = "Se ricarichi la pagina il tentativo verra segnato 0/0 e non potrai rifare il quiz.";
+    event.returnValue = "Se ricarichi la pagina il tentativo verrà segnato 0/0 e non potrai rifare il quiz.";
   });
 
   window.addEventListener("pagehide", () => {
@@ -444,7 +445,7 @@ function stopQuizTimer() {
 }
 
 function emptyAlbumMarkup() {
-  return `<div class="empty-state empty-album-state"><span>✦</span><h3>L'album aspetta il primo ricordo</h3><p>Hai scattato una foto? Caricala tu: comparira' nell'album condiviso per tutti gli invitati.</p><a class="btn btn-primary" href="album.html#upload">Carica le tue foto</a></div>`;
+  return `<div class="empty-state empty-album-state"><span>✦</span><h3>L'album aspetta il primo ricordo</h3><p>Hai scattato una foto? Caricala tu: comparirà nell'album condiviso per tutti gli invitati.</p><a class="btn btn-primary" href="album.html#upload">Carica le tue foto</a></div>`;
 }
 
 function showQuizResult(message) {
@@ -463,6 +464,7 @@ function initAlbum() {
   initDropzone();
   initUploadPreview();
   initGallerySearch();
+  initGalleryDateFilter();
   initGallerySelection();
   loadGallery();
 }
@@ -513,27 +515,30 @@ function initUploadPreview() {
   if (!input || !preview) return;
 
   input.addEventListener("change", () => {
-    const files = Array.from(input.files || []);
-    $$("img", preview).forEach((image) => URL.revokeObjectURL(image.src));
-    if (!files.length) {
-      preview.replaceChildren();
-      return;
-    }
+    state.upload.files = Array.from(input.files || []);
+    renderUploadPreview(preview);
+  });
+}
 
-    preview.innerHTML = files
-      .slice(0, 6)
-      .map((file) => {
-        const url = URL.createObjectURL(file);
-        return `<figure><img src="${escapeAttr(url)}" alt="Anteprima ${escapeAttr(file.name)}"><figcaption>${escapeHtml(file.name)}</figcaption></figure>`;
-      })
-      .join("");
+function renderUploadPreview(preview = $("[data-upload-preview]")) {
+  if (!preview) return;
+  state.upload.previewUrls.forEach((url) => URL.revokeObjectURL(url));
+  state.upload.previewUrls = [];
 
-    if (files.length > 6) {
-      preview.insertAdjacentHTML(
-        "beforeend",
-        `<span class="preview-more">+${files.length - 6}</span>`,
-      );
-    }
+  preview.replaceChildren();
+  state.upload.files.forEach((file, index) => {
+    const url = URL.createObjectURL(file);
+    state.upload.previewUrls.push(url);
+    const figure = document.createElement("figure");
+    figure.innerHTML = `<img src="${escapeAttr(url)}" alt="Anteprima ${escapeAttr(file.name)}"><figcaption>${escapeHtml(file.name)}</figcaption><button type="button" class="remove-preview" data-remove-preview="${index}" aria-label="Rimuovi ${escapeAttr(file.name)}">Rimuovi</button>`;
+    preview.appendChild(figure);
+  });
+
+  $$('[data-remove-preview]', preview).forEach((button) => {
+    button.addEventListener("click", () => {
+      state.upload.files.splice(Number(button.dataset.removePreview), 1);
+      renderUploadPreview(preview);
+    });
   });
 }
 
@@ -547,10 +552,10 @@ function initUpload() {
     const status = $("[data-upload-status]");
     const formData = new FormData(form);
     const uploaderName = String(formData.get("uploaderName") || "").trim();
-    const files = Array.from(form.photos.files || []);
+    const files = state.upload.files;
 
-    if (!uploaderName.includes(" ") || uploaderName.length < 5) {
-      status.innerHTML = `<div class="upload-line">Inserisci nome e cognome completi.</div>`;
+    if (!uploaderName) {
+      status.innerHTML = `<div class="upload-line">Inserisci il tuo nome.</div>`;
       return;
     }
 
@@ -617,7 +622,8 @@ function initUpload() {
     }
 
     form.reset();
-    $("[data-upload-preview]")?.replaceChildren();
+    state.upload.files = [];
+    renderUploadPreview();
     await loadGallery();
     if (uploadedCount === files.length) {
       showSuccessDialog(
@@ -716,9 +722,22 @@ function initGallerySearch() {
   });
 }
 
+function initGalleryDateFilter() {
+  const date = $("[data-photo-date]");
+  if (!date) return;
+
+  date.addEventListener("change", () => {
+    state.gallery.date = date.value;
+    state.gallery.page = 1;
+    state.gallery.selected.clear();
+    loadGallery(state.gallery.search, 1, date.value);
+  });
+}
+
 async function loadGallery(
   search = state.gallery.search,
   page = state.gallery.page,
+  date = state.gallery.date,
 ) {
   const gallery = $("[data-gallery]");
   if (!gallery) return;
@@ -728,7 +747,8 @@ async function loadGallery(
   try {
     state.gallery.search = search;
     state.gallery.page = page;
-    const query = `?search=${encodeURIComponent(search)}&limit=5&page=${page}`;
+    state.gallery.date = date;
+    const query = `?search=${encodeURIComponent(search)}&date=${encodeURIComponent(date)}&limit=5&page=${page}`;
     const data = await api(`/api/photos${query}`, { admin: false });
     const photos = data.photos || [];
 
@@ -794,7 +814,7 @@ function renderGalleryPagination(total, limit, currentPage) {
       : "";
   $$("[data-gallery-page]", root).forEach((button) =>
     button.addEventListener("click", () =>
-      loadGallery(state.gallery.search, Number(button.dataset.galleryPage)),
+      loadGallery(state.gallery.search, Number(button.dataset.galleryPage), state.gallery.date),
     ),
   );
 }
@@ -804,7 +824,7 @@ async function downloadSelectedPhotos() {
   if (!keys.length) return;
   try {
     const data = await api(
-      `/api/photos?search=${encodeURIComponent(state.gallery.search)}&limit=200&page=1`,
+      `/api/photos?search=${encodeURIComponent(state.gallery.search)}&date=${encodeURIComponent(state.gallery.date)}&limit=200&page=1`,
       { admin: false },
     );
     data.photos
