@@ -74,6 +74,9 @@
           <button class="tab-btn" type="button" data-tab-target="messages">
             Messaggi
           </button>
+          <button class="tab-btn" type="button" data-tab-target="contacts">
+            Contattaci
+          </button>
           <button class="tab-btn" type="button" data-tab-target="quiz">
             Quiz
           </button>
@@ -91,8 +94,12 @@
             <button class="btn btn-danger" type="button" data-delete-selected>
               Elimina selezionate
             </button>
+            <button class="btn btn-secondary" type="button" data-download-selected-admin>
+              Scarica selezionate
+            </button>
           </div>
           <div class="admin-photo-grid" data-admin-photos></div>
+          <nav class="pagination" data-admin-photos-pagination aria-label="Pagine foto"></nav>
         </section>
 
         <section class="admin-tab" data-tab="messages">
@@ -103,6 +110,7 @@
             </div>
           </div>
           <div class="message-list" data-admin-messages></div>
+          <nav class="pagination" data-admin-messages-pagination aria-label="Pagine messaggi"></nav>
         </section>
 
         <section class="admin-tab" data-tab="quiz">
@@ -134,7 +142,7 @@
                   required
                 ></select
               ></label>
-              <div class="editor-actions">
+            <div class="editor-actions">
                 <button class="btn btn-primary" type="submit">
                   Salva domanda</button
                 ><button class="btn btn-ghost" type="button" data-reset-editor>
@@ -143,8 +151,25 @@
               </div>
               <p class="form-note" data-quiz-editor-status></p>
             </form>
-            <div class="question-list" data-admin-questions></div>
+            <div>
+              <div class="question-list" data-admin-questions></div>
+              <nav class="pagination" data-admin-questions-pagination aria-label="Pagine domande"></nav>
+              <button class="btn btn-primary hidden" type="button" data-save-question-order>
+                Salva ordine domande
+              </button>
+            </div>
           </div>
+        </section>
+
+        <section class="admin-tab" data-tab="contacts">
+          <div class="admin-section-head">
+            <div>
+              <p class="card-kicker">Domande degli invitati</p>
+              <h2>Contattaci</h2>
+            </div>
+          </div>
+          <div class="message-list" data-admin-contacts></div>
+          <nav class="pagination" data-admin-contacts-pagination aria-label="Pagine contatti"></nav>
         </section>
 
         <section class="admin-tab" data-tab="leaderboard">
@@ -161,12 +186,13 @@
               data-leaderboard-search
           /></label>
           <ol class="admin-leaderboard-list" data-admin-leaderboard></ol>
+          <nav class="pagination" data-admin-leaderboard-pagination aria-label="Pagine classifica"></nav>
         </section>
       </section>
     </main>
     <footer class="site-footer">
       <p>Gloria &amp; Beniamino</p>
-      <span>Sviluppato da Giulio Di Donato</span>
+      <a href="sviluppato-da-giulio.html">Sviluppato da Giulio Di Donato</a>
     </footer>
     <script src="config.js"></script>
     <script src="script.js" defer></script>

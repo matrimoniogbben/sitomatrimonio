@@ -16,9 +16,15 @@ const state = {
     answers: [],
     startedAt: 0,
     timerId: null,
+    inProgress: false,
   },
   adminToken: localStorage.getItem("gbAdminToken") || "",
   adminLeaderboard: [],
+  adminQuestions: [],
+  adminPhotos: [],
+  adminPages: { photos: 1, messages: 1, contacts: 1, questions: 1, leaderboard: 1 },
+  adminQuestionOrderDirty: false,
+  gallery: { page: 1, search: "", selecting: false, selected: new Set() },
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -27,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initNavigation();
   initRevealAnimations();
   initMapFrames();
+  initDecorativeHearts();
 
   if (page === "home") initHome();
   if (page === "album") initAlbum();
@@ -66,6 +73,10 @@ function initNavigation() {
 function initRevealAnimations() {
   const items = $$(".reveal");
   if (!items.length) return;
+  if (!("IntersectionObserver" in window)) {
+    items.forEach((item) => item.classList.add("visible"));
+    return;
+  }
 
   const observer = new IntersectionObserver(
     (entries) => {
@@ -87,10 +98,29 @@ function initMapFrames() {
     const query = encodeURIComponent(
       frame.dataset.mapQuery || "Gloria Beniamino matrimonio",
     );
-    const iframe = $("iframe", frame);
-    if (iframe) {
-      iframe.src = `https://maps.google.com/maps?q=${query}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
-    }
+    frame.innerHTML = `<button class="map-load" type="button">Mostra la mappa interattiva</button>`;
+    $("button", frame)?.addEventListener("click", () => {
+      frame.innerHTML = `<iframe title="Mappa interattiva" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://maps.google.com/maps?q=${query}&t=&z=14&ie=UTF8&iwloc=&output=embed"></iframe>`;
+    });
+  });
+}
+
+function initDecorativeHearts() {
+  const prefersLessMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (prefersLessMotion || navigator.connection?.saveData) return;
+  const sections = $$(".hero, main > .section, main > .upload-section");
+  sections.forEach((section) => {
+    const hearts = document.createElement("div");
+    hearts.className = "floating-hearts";
+    hearts.setAttribute("aria-hidden", "true");
+    hearts.innerHTML = Array.from({ length: 2 }, (_, index) => {
+      const x = index === 0 ? Math.round(Math.random() * 8 + 2) : Math.round(Math.random() * 8 + 90);
+      const y = Math.round(Math.random() * 76 + 12);
+      const delay = (Math.random() * -10).toFixed(1);
+      const duration = (9 + Math.random() * 7).toFixed(1);
+      return `<span style="--x:${x}%;--y:${y}%;--delay:${delay}s;--duration:${duration}s">♥</span>`;
+    }).join("");
+    section.appendChild(hearts);
   });
 }
 
@@ -130,8 +160,11 @@ function initHome() {
   initCarouselControls();
   initQuiz();
   initMessageForm();
+  initContactForm();
 
-  window.setInterval(loadPhotoCarousel, 20000);
+  window.setInterval(() => {
+    if (!document.hidden) loadPhotoCarousel();
+  }, 60000);
 }
 
 async function loadPhotoCarousel() {
@@ -154,7 +187,7 @@ async function loadPhotoCarousel() {
         (photo) => `
         <article class="carousel-card">
           <img src="${escapeAttr(photo.url)}" alt="Foto caricata da ${escapeAttr(photo.uploaderName)}" loading="lazy">
-          <span class="photo-badge">${escapeHtml(photo.uploaderName)}</span>
+          <span class="photo-badge"><strong>${escapeHtml(photo.uploaderName)}</strong><small>${formatDate(photo.createdAt)}</small></span>
         </article>
       `,
       )
@@ -184,7 +217,10 @@ function initMessageForm() {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const status = $("[data-message-status]");
-    const data = Object.fromEntries(new FormData(form).entries());
+    const data = {
+      ...Object.fromEntries(new FormData(form).entries()),
+      type: "guestbook",
+    };
 
     try {
       status.textContent = "Invio in corso...";
@@ -195,6 +231,35 @@ function initMessageForm() {
       });
       form.reset();
       status.textContent = "Messaggio inviato. Grazie!";
+      showSuccessDialog(
+        "Messaggio inviato",
+        "Grazie per aver lasciato un pensiero per noi.",
+      );
+    } catch (error) {
+      status.textContent = error.message;
+    }
+  });
+}
+
+function initContactForm() {
+  const form = $("[data-contact-form]");
+  if (!form) return;
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const status = $("[data-contact-status]");
+    const data = {
+      ...Object.fromEntries(new FormData(form).entries()),
+      type: "contact",
+    };
+    try {
+      status.textContent = "Invio in corso...";
+      await api("/api/messages", { method: "POST", body: data, admin: false });
+      form.reset();
+      status.textContent = "Richiesta inviata. Grazie!";
+      showSuccessDialog(
+        "Richiesta inviata",
+        "Grazie! Leggeremo il tuo messaggio con piacere.",
+      );
     } catch (error) {
       status.textContent = error.message;
     }
@@ -216,7 +281,7 @@ async function initQuiz() {
     );
   }
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const participant = Object.fromEntries(new FormData(form).entries());
@@ -226,13 +291,33 @@ async function initQuiz() {
     };
     state.quiz.current = 0;
     state.quiz.answers = new Array(state.quiz.questions.length).fill(null);
-    state.quiz.startedAt = performance.now();
 
     if (!state.quiz.questions.length) {
       showQuizResult("Il quiz non ha ancora domande. Riprova più tardi.");
       return;
     }
 
+    const startAlert = $("[data-quiz-start-alert]");
+    try {
+      const check = await api(
+        `/api/quiz/participation?name=${encodeURIComponent(state.quiz.participant.name)}&surname=${encodeURIComponent(state.quiz.participant.surname)}`,
+        { admin: false },
+      );
+      if (check.participated) {
+        startAlert?.classList.remove("hidden");
+        $("h3", startAlert).textContent =
+          "Hai gia partecipato al quiz. Chiedi agli sposi se vuoi riprovare.";
+        return;
+      }
+    } catch (error) {
+      startAlert?.classList.remove("hidden");
+      $("h3", startAlert).textContent = error.message;
+      return;
+    }
+
+    startAlert?.classList.add("hidden");
+    state.quiz.startedAt = performance.now();
+    state.quiz.inProgress = true;
     form.classList.add("hidden");
     $("[data-quiz-box]")?.classList.remove("hidden");
     startQuizTimer();
@@ -257,6 +342,21 @@ async function initQuiz() {
     }
 
     await submitQuiz();
+  });
+
+  window.addEventListener("beforeunload", (event) => {
+    if (!state.quiz.inProgress) return;
+    event.preventDefault();
+    event.returnValue = "Se ricarichi la pagina il tentativo verra segnato 0/0 e non potrai rifare il quiz.";
+  });
+
+  window.addEventListener("pagehide", () => {
+    if (!state.quiz.inProgress || !state.quiz.participant) return;
+    const payload = JSON.stringify(state.quiz.participant);
+    navigator.sendBeacon(
+      "/api/quiz/abandon",
+      new Blob([payload], { type: "application/json" }),
+    );
   });
 }
 
@@ -298,6 +398,7 @@ function renderQuizQuestion() {
 
 async function submitQuiz() {
   stopQuizTimer();
+  state.quiz.inProgress = false;
   const payload = {
     ...state.quiz.participant,
     elapsedMs: Math.round(performance.now() - state.quiz.startedAt),
@@ -343,7 +444,7 @@ function stopQuizTimer() {
 }
 
 function emptyAlbumMarkup() {
-  return `<div class="empty-state empty-album-state"><span>✦</span><h3>L'album aspetta il primo ricordo</h3><p>Scatta, scegli e carica: le tue foto compariranno qui per tutti gli invitati.</p><a class="btn btn-primary" href="album.html#upload">Carica una foto</a></div>`;
+  return `<div class="empty-state empty-album-state"><span>✦</span><h3>L'album aspetta il primo ricordo</h3><p>Hai scattato una foto? Caricala tu: comparira' nell'album condiviso per tutti gli invitati.</p><a class="btn btn-primary" href="album.html#upload">Carica le tue foto</a></div>`;
 }
 
 function showQuizResult(message) {
@@ -354,12 +455,7 @@ function showQuizResult(message) {
   result.innerHTML = `
     <p class="card-kicker">Risultato</p>
     <h3>${escapeHtml(message)}</h3>
-    <button class="btn btn-secondary" type="button" data-restart-quiz>Rigioca</button>
   `;
-
-  $("[data-restart-quiz]")?.addEventListener("click", () => {
-    window.location.reload();
-  });
 }
 
 function initAlbum() {
@@ -367,7 +463,20 @@ function initAlbum() {
   initDropzone();
   initUploadPreview();
   initGallerySearch();
+  initGallerySelection();
   loadGallery();
+}
+
+function initGallerySelection() {
+  $("[data-select-photos]")?.addEventListener("click", () => {
+    state.gallery.selecting = !state.gallery.selecting;
+    state.gallery.selected.clear();
+    loadGallery(state.gallery.search, state.gallery.page);
+  });
+  $("[data-download-selected]")?.addEventListener(
+    "click",
+    downloadSelectedPhotos,
+  );
 }
 
 function initDropzone() {
@@ -405,6 +514,7 @@ function initUploadPreview() {
 
   input.addEventListener("change", () => {
     const files = Array.from(input.files || []);
+    $$("img", preview).forEach((image) => URL.revokeObjectURL(image.src));
     if (!files.length) {
       preview.replaceChildren();
       return;
@@ -449,7 +559,13 @@ function initUpload() {
       return;
     }
 
+    if (files.length > 10 || files.some((file) => file.size > 20 * 1024 * 1024)) {
+      status.innerHTML = `<div class="upload-line">Puoi caricare al massimo 10 foto, fino a 20 MB ciascuna.</div>`;
+      return;
+    }
+
     status.innerHTML = "";
+    let uploadedCount = 0;
 
     for (const [index, file] of files.entries()) {
       const line = document.createElement("div");
@@ -494,6 +610,7 @@ function initUpload() {
         });
 
         line.textContent = `Foto caricata: ${file.name}`;
+        uploadedCount += 1;
       } catch (error) {
         line.textContent = `Errore su ${file.name}: ${error.message}`;
       }
@@ -502,6 +619,34 @@ function initUpload() {
     form.reset();
     $("[data-upload-preview]")?.replaceChildren();
     await loadGallery();
+    if (uploadedCount === files.length) {
+      showSuccessDialog(
+        "Foto caricate",
+        `Hai condiviso ${uploadedCount} foto nell'album. Grazie per il ricordo!`,
+      );
+    }
+  });
+}
+
+function showSuccessDialog(title, message) {
+  const dialog = document.createElement("div");
+  dialog.className = "success-dialog";
+  dialog.setAttribute("role", "dialog");
+  dialog.setAttribute("aria-modal", "true");
+  dialog.setAttribute("aria-labelledby", "success-dialog-title");
+  dialog.innerHTML = `
+    <div class="success-dialog-card">
+      <img src="assets/couple-mark.png" alt="Gloria e Beniamino">
+      <p class="eyebrow">Grazie</p>
+      <h2 id="success-dialog-title">${escapeHtml(title)}</h2>
+      <p>${escapeHtml(message)}</p>
+      <button class="btn btn-primary" type="button" data-close-success-dialog>Va bene</button>
+    </div>`;
+  document.body.appendChild(dialog);
+  const close = () => dialog.remove();
+  $("[data-close-success-dialog]", dialog)?.addEventListener("click", close);
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) close();
   });
 }
 
@@ -564,20 +709,26 @@ function initGallerySearch() {
   let timeout;
   search.addEventListener("input", () => {
     clearTimeout(timeout);
-    timeout = setTimeout(() => loadGallery(search.value), 250);
+    state.gallery.search = search.value;
+    state.gallery.page = 1;
+    state.gallery.selected.clear();
+    timeout = setTimeout(() => loadGallery(search.value, 1), 250);
   });
 }
 
-async function loadGallery(search = "") {
+async function loadGallery(
+  search = state.gallery.search,
+  page = state.gallery.page,
+) {
   const gallery = $("[data-gallery]");
   if (!gallery) return;
 
   gallery.innerHTML = `<div class="empty-state"><p>Caricamento album...</p></div>`;
 
   try {
-    const query = search
-      ? `?search=${encodeURIComponent(search)}&limit=200`
-      : "?limit=200";
+    state.gallery.search = search;
+    state.gallery.page = page;
+    const query = `?search=${encodeURIComponent(search)}&limit=5&page=${page}`;
     const data = await api(`/api/photos${query}`, { admin: false });
     const photos = data.photos || [];
 
@@ -591,16 +742,78 @@ async function loadGallery(search = "") {
         (photo) => `
         <article class="gallery-item">
           <img src="${escapeAttr(photo.url)}" alt="Foto caricata da ${escapeAttr(photo.uploaderName)}" loading="lazy">
+          ${state.gallery.selecting ? `<label class="photo-select"><input type="checkbox" value="${escapeAttr(photo.key)}" ${state.gallery.selected.has(photo.key) ? "checked" : ""}> Seleziona</label>` : ""}
           <div class="gallery-caption">
-            <span>${escapeHtml(photo.uploaderName)}</span>
+            <span><strong>${escapeHtml(photo.uploaderName)}</strong><small>${formatDate(photo.createdAt)}</small></span>
             <a class="download-pill" href="${escapeAttr(photo.downloadUrl)}" target="_blank" rel="noreferrer">Scarica</a>
           </div>
         </article>
       `,
       )
       .join("");
+    $$('[data-gallery] input[type="checkbox"]').forEach((input) => {
+      input.addEventListener("change", () => {
+        input.checked
+          ? state.gallery.selected.add(input.value)
+          : state.gallery.selected.delete(input.value);
+        updateGallerySelectionControls();
+      });
+    });
+    renderGalleryPagination(data.total, data.limit, data.page);
+    updateGallerySelectionControls();
   } catch (error) {
     gallery.innerHTML = `<div class="empty-state"><p>${escapeHtml(error.message)}</p></div>`;
+  }
+}
+
+function updateGallerySelectionControls() {
+  const selectButton = $("[data-select-photos]");
+  const downloadButton = $("[data-download-selected]");
+  if (!selectButton || !downloadButton) return;
+  selectButton.textContent = state.gallery.selecting
+    ? "Annulla selezione"
+    : "Seleziona foto";
+  downloadButton.classList.toggle(
+    "hidden",
+    !state.gallery.selecting || !state.gallery.selected.size,
+  );
+  downloadButton.textContent = `Scarica selezionate (${state.gallery.selected.size})`;
+}
+
+function renderGalleryPagination(total, limit, currentPage) {
+  const root = $("[data-gallery-pagination]");
+  if (!root) return;
+  const pages = Math.ceil(total / limit);
+  root.innerHTML =
+    pages > 1
+      ? Array.from(
+          { length: pages },
+          (_, index) =>
+            `<button class="${currentPage === index + 1 ? "active" : ""}" type="button" data-gallery-page="${index + 1}">${index + 1}</button>`,
+        ).join("")
+      : "";
+  $$("[data-gallery-page]", root).forEach((button) =>
+    button.addEventListener("click", () =>
+      loadGallery(state.gallery.search, Number(button.dataset.galleryPage)),
+    ),
+  );
+}
+
+async function downloadSelectedPhotos() {
+  const keys = Array.from(state.gallery.selected);
+  if (!keys.length) return;
+  try {
+    const data = await api(
+      `/api/photos?search=${encodeURIComponent(state.gallery.search)}&limit=200&page=1`,
+      { admin: false },
+    );
+    data.photos
+      .filter((photo) => keys.includes(photo.key))
+      .forEach((photo, index) => {
+        window.setTimeout(() => window.open(photo.downloadUrl, "_blank"), index * 500);
+      });
+  } catch (error) {
+    alert(error.message);
   }
 }
 
@@ -650,11 +863,19 @@ function initAdmin() {
   });
 
   $("[data-delete-selected]")?.addEventListener("click", deleteSelectedPhotos);
+  $("[data-download-selected-admin]")?.addEventListener(
+    "click",
+    downloadSelectedAdminPhotos,
+  );
   $("[data-quiz-editor]")?.addEventListener("submit", saveQuizQuestion);
   $("[data-reset-editor]")?.addEventListener("click", resetQuizEditor);
   $("[data-add-answer]")?.addEventListener("click", () => addAnswerField());
+  $("[data-save-question-order]")?.addEventListener(
+    "click",
+    saveQuestionOrder,
+  );
   $("[data-leaderboard-search]")?.addEventListener("input", (event) =>
-    renderAdminLeaderboard(event.target.value),
+    renderAdminLeaderboard(event.target.value, 1),
   );
   $("[data-admin-logout]")?.addEventListener("click", () => {
     localStorage.removeItem("gbAdminToken");
@@ -673,8 +894,9 @@ async function loadAdminAll(showLoading = true) {
   await Promise.all([
     loadAdminDashboard(showLoading),
     loadAdminPhotos(showLoading),
-    loadAdminMessages(showLoading),
-    loadAdminQuiz(showLoading),
+    loadAdminMessages(showLoading, "guestbook"),
+    loadAdminMessages(showLoading, "contact"),
+    ...(state.adminQuestionOrderDirty ? [] : [loadAdminQuiz(showLoading)]),
   ]);
 }
 
@@ -711,13 +933,16 @@ async function loadAdminPhotos(showLoading = true) {
   try {
     const data = await api("/api/admin/photos");
     const photos = data.photos || [];
+    state.adminPhotos = photos;
 
     if (!photos.length) {
       root.innerHTML = `<div class="empty-state"><p>Nessuna foto caricata.</p></div>`;
+      renderAdminPagination("photos", 0, () => loadAdminPhotos(false));
       return;
     }
 
-    root.innerHTML = photos
+    const pagePhotos = paginateAdminItems("photos", photos);
+    root.innerHTML = pagePhotos
       .map(
         (photo) => `
         <article class="admin-photo-card">
@@ -730,9 +955,26 @@ async function loadAdminPhotos(showLoading = true) {
       `,
       )
       .join("");
+    renderAdminPagination("photos", photos.length, () => loadAdminPhotos(false));
   } catch (error) {
     handleAdminError(error);
   }
+}
+
+function downloadSelectedAdminPhotos() {
+  const keys = $$('[data-admin-photos] [data-photo-select]:checked').map(
+    (input) => input.value,
+  );
+  if (!keys.length) {
+    alert("Seleziona almeno una foto.");
+    return;
+  }
+
+  keys.forEach((key, index) => {
+    const photo = state.adminPhotos.find((item) => item.key === key);
+    if (!photo) return;
+    window.setTimeout(() => window.open(photo.downloadUrl, "_blank"), index * 500);
+  });
 }
 
 async function deleteSelectedPhotos() {
@@ -756,22 +998,27 @@ async function deleteSelectedPhotos() {
   }
 }
 
-async function loadAdminMessages(showLoading = true) {
-  const root = $("[data-admin-messages]");
+async function loadAdminMessages(showLoading = true, type = "guestbook") {
+  const root = $(
+    type === "contact" ? "[data-admin-contacts]" : "[data-admin-messages]",
+  );
   if (!root) return;
   if (showLoading)
     root.innerHTML = `<div class="empty-state"><p>Caricamento messaggi...</p></div>`;
 
   try {
-    const data = await api("/api/admin/messages");
+    const data = await api(`/api/admin/messages?type=${type}`);
     const messages = data.messages || [];
+    const pageName = type === "contact" ? "contacts" : "messages";
 
     if (!messages.length) {
       root.innerHTML = `<div class="empty-state"><p>Nessun messaggio ricevuto.</p></div>`;
+      renderAdminPagination(pageName, 0, () => loadAdminMessages(false, type));
       return;
     }
 
-    root.innerHTML = messages
+    const pageMessages = paginateAdminItems(pageName, messages);
+    root.innerHTML = pageMessages
       .map(
         (message) => `
         <article class="message-item ${message.read ? "" : "unread"}">
@@ -789,6 +1036,9 @@ async function loadAdminMessages(showLoading = true) {
       `,
       )
       .join("");
+    renderAdminPagination(pageName, messages.length, () =>
+      loadAdminMessages(false, type),
+    );
 
     $$("[data-toggle-read]").forEach((button) => {
       button.addEventListener("click", async () => {
@@ -796,7 +1046,7 @@ async function loadAdminMessages(showLoading = true) {
           method: "PATCH",
           body: { read: button.dataset.read === "true" },
         });
-        await loadAdminMessages(false);
+        await loadAdminMessages(false, type);
         await loadAdminDashboard();
       });
     });
@@ -807,7 +1057,7 @@ async function loadAdminMessages(showLoading = true) {
         await api(`/api/admin/messages/${button.dataset.deleteMessage}`, {
           method: "DELETE",
         });
-        await loadAdminMessages(false);
+        await loadAdminMessages(false, type);
         await loadAdminDashboard();
       });
     });
@@ -827,10 +1077,12 @@ async function loadAdminQuiz(showLoading = true) {
   try {
     const data = await api("/api/admin/quiz");
     const questions = data.questions || [];
+    state.adminQuestions = questions;
+    state.adminQuestionOrderDirty = false;
     state.adminLeaderboard = data.leaderboard || [];
 
     questionRoot.innerHTML = questions.length
-      ? questions
+      ? paginateAdminItems("questions", questions)
           .map(
             (question) => `
           <article class="question-card">
@@ -847,6 +1099,8 @@ async function loadAdminQuiz(showLoading = true) {
                 .join("")}
             </ul>
             <div class="editor-actions">
+              <button class="btn btn-ghost" type="button" data-move-question="up" data-question-id="${escapeAttr(question.id)}">Sposta su</button>
+              <button class="btn btn-ghost" type="button" data-move-question="down" data-question-id="${escapeAttr(question.id)}">Sposta giu</button>
               <button class="btn btn-secondary" type="button" data-edit-question='${escapeAttr(JSON.stringify(question))}'>Modifica</button>
               <button class="btn btn-danger" type="button" data-delete-question="${escapeAttr(question.id)}">Elimina</button>
             </div>
@@ -855,6 +1109,9 @@ async function loadAdminQuiz(showLoading = true) {
           )
           .join("")
       : `<div class="empty-state"><p>Nessuna domanda creata.</p></div>`;
+
+    renderAdminPagination("questions", questions.length, () => loadAdminQuiz(false));
+    $("[data-save-question-order]")?.classList.add("hidden");
 
     renderAdminLeaderboard($("[data-leaderboard-search]")?.value || "");
 
@@ -875,12 +1132,62 @@ async function loadAdminQuiz(showLoading = true) {
         await loadAdminAll(false);
       });
     });
+
+    $$("[data-move-question]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const index = state.adminQuestions.findIndex(
+          (question) => question.id === button.dataset.questionId,
+        );
+        const target = button.dataset.moveQuestion === "up" ? index - 1 : index + 1;
+        if (index < 0 || target < 0 || target >= state.adminQuestions.length) return;
+        const currentPageStart = (state.adminPages.questions - 1) * 10;
+        const currentPageEnd = currentPageStart + 10;
+        if (target < currentPageStart || target >= currentPageEnd) {
+          alert("Salva l'ordine e passa alla pagina successiva per spostare questa domanda.");
+          return;
+        }
+        [state.adminQuestions[index], state.adminQuestions[target]] = [
+          state.adminQuestions[target],
+          state.adminQuestions[index],
+        ];
+        state.adminQuestionOrderDirty = true;
+        $("[data-save-question-order]")?.classList.remove("hidden");
+        renderAdminQuestionOrder();
+      });
+    });
   } catch (error) {
     handleAdminError(error);
   }
 }
 
-function renderAdminLeaderboard(search = "") {
+function renderAdminQuestionOrder() {
+  const root = $("[data-admin-questions]");
+  if (!root) return;
+  const cards = new Map(
+    $$('[data-question-id]', root).map((button) => [
+      button.dataset.questionId,
+      button.closest(".question-card"),
+    ]),
+  );
+  state.adminQuestions
+    .slice((state.adminPages.questions - 1) * 10, state.adminPages.questions * 10)
+    .forEach((question) => root.append(cards.get(question.id)));
+}
+
+async function saveQuestionOrder() {
+  try {
+    await api("/api/admin/quiz/questions/order", {
+      method: "PUT",
+      body: { ids: state.adminQuestions.map((question) => question.id) },
+    });
+    state.adminQuestionOrderDirty = false;
+    await loadAdminQuiz(false);
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+function renderAdminLeaderboard(search = "", page = state.adminPages.leaderboard) {
   const root = $("[data-admin-leaderboard]");
   if (!root) return;
 
@@ -888,14 +1195,16 @@ function renderAdminLeaderboard(search = "") {
   const rows = state.adminLeaderboard.filter((row) =>
     `${row.name} ${row.surname}`.toLowerCase().includes(query),
   );
+  state.adminPages.leaderboard = page;
+  const pageRows = paginateAdminItems("leaderboard", rows);
 
   root.innerHTML = rows.length
-    ? rows
+    ? pageRows
         .map(
           (row) => `
           <li>
             <span class="rank">${row.position}</span>
-            <span><strong>${escapeHtml(row.name)} ${escapeHtml(row.surname)}</strong><small>${row.correctAnswers}/${row.total} risposte corrette</small></span>
+            <span><strong>${escapeHtml(row.name)} ${escapeHtml(row.surname)}</strong><small>${row.correctAnswers}/${row.total} risposte corrette · Tempo ${formatElapsed(row.elapsedMs)}</small></span>
             <span class="score">${formatElapsed(row.elapsedMs)}</span>
             <button class="remove-submission" type="button" data-delete-submission="${escapeAttr(row.id)}" aria-label="Elimina ${escapeAttr(row.name)} ${escapeAttr(row.surname)}">×</button>
           </li>
@@ -903,6 +1212,10 @@ function renderAdminLeaderboard(search = "") {
         )
         .join("")
     : `<li class="empty-line">Nessun invitato trovato.</li>`;
+
+  renderAdminPagination("leaderboard", rows.length, () =>
+    renderAdminLeaderboard(search),
+  );
 
   $$("[data-delete-submission]", root).forEach((button) => {
     button.addEventListener("click", async () => {
@@ -927,6 +1240,7 @@ async function saveQuizQuestion(event) {
   const form = event.currentTarget;
   const status = $("[data-quiz-editor-status]");
   const id = $("[name='id']", form).value;
+  const formData = new FormData(form);
   const answers = $$("[data-answer-field]", form)
     .map((input) => input.value.trim())
     .filter(Boolean);
@@ -1021,6 +1335,33 @@ function handleAdminError(error) {
   console.error(error);
 }
 
+function paginateAdminItems(name, items, limit = 10) {
+  const pages = Math.max(1, Math.ceil(items.length / limit));
+  state.adminPages[name] = Math.min(Math.max(state.adminPages[name] || 1, 1), pages);
+  const start = (state.adminPages[name] - 1) * limit;
+  return items.slice(start, start + limit);
+}
+
+function renderAdminPagination(name, total, onChange, limit = 10) {
+  const root = $(`[data-admin-${name}-pagination]`);
+  if (!root) return;
+  const pages = Math.ceil(total / limit);
+  root.innerHTML =
+    pages > 1
+      ? Array.from(
+          { length: pages },
+          (_, index) =>
+            `<button class="${state.adminPages[name] === index + 1 ? "active" : ""}" type="button" data-admin-page="${index + 1}">${index + 1}</button>`,
+        ).join("")
+      : "";
+  $$('[data-admin-page]', root).forEach((button) =>
+    button.addEventListener("click", () => {
+      state.adminPages[name] = Number(button.dataset.adminPage);
+      onChange();
+    }),
+  );
+}
+
 function formatBytes(bytes) {
   const value = Number(bytes || 0);
   if (value < 1024) return `${value} B`;
@@ -1053,3 +1394,4 @@ function escapeHtml(value) {
 function escapeAttr(value) {
   return escapeHtml(value);
 }
+

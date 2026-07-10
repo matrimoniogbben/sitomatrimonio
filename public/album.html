@@ -44,17 +44,20 @@
         <div class="section-heading reveal">
           <p class="eyebrow">📷 Album condiviso</p>
           <h1>I vostri scatti</h1>
-          <p>I ricordi più belli della giornata, raccolti in un unico luogo.</p>
+          <p class="info-intro">
+            Questo e' l'album di tutti: scegli le foto che hai scattato e
+            caricale qui per condividerle con Gloria, Beniamino e gli invitati.
+          </p>
         </div>
       </section>
       <section id="upload" class="upload-section">
         <div class="upload-card reveal">
           <div>
-            <p class="eyebrow">Condividi un ricordo</p>
-            <h2>Carica le tue foto</h2>
+            <p class="eyebrow">Il tuo contributo</p>
+            <h2>Carica tu le foto che hai scattato</h2>
             <p>
-              Le immagini vengono ottimizzate automaticamente per mantenere
-              l'album leggero e veloce.
+              Inserisci il tuo nome, scegli una o piu' foto e premi carica:
+              compariranno nell'album condiviso per tutti gli invitati.
             </p>
           </div>
           <form class="upload-form" data-upload-form>
@@ -82,7 +85,7 @@
               aria-live="polite"
             ></div>
             <button class="btn btn-primary" type="submit">
-              Comprimi e carica
+              Carica le mie foto nell'album
             </button>
             <div class="upload-status" data-upload-status></div>
           </form>
@@ -93,6 +96,18 @@
           <div>
             <p class="eyebrow">Cerca nell'album</p>
             <h2>Trova gli scatti</h2>
+          </div>
+          <div class="gallery-actions">
+            <button class="btn btn-secondary" type="button" data-select-photos>
+              Seleziona foto
+            </button>
+            <button
+              class="btn btn-primary hidden"
+              type="button"
+              data-download-selected
+            >
+              Scarica selezionate
+            </button>
           </div>
           <label class="search-box"
             ><span>Cerca per nome e cognome</span
@@ -105,12 +120,17 @@
         <div class="masonry-grid" data-gallery>
           <div class="empty-state"><p>Caricamento album...</p></div>
         </div>
+        <nav
+          class="pagination"
+          data-gallery-pagination
+          aria-label="Pagine album"
+        ></nav>
       </section>
     </main>
     <footer class="site-footer">
       <p>Gloria &amp; Beniamino</p>
-      <span>Sviluppato da Giulio Di Donato</span
-      ><a href="admin.html">Area Riservata</a>
+      <a href="sviluppato-da-giulio.html">Sviluppato da Giulio Di Donato</a>
+      <a href="admin.html">Area Riservata</a>
     </footer>
     <script src="config.js"></script>
     <script src="script.js" defer></script>

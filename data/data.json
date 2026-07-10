@@ -7,21 +7,36 @@
         "id": "wedding-question-1",
         "intro": "Iniziamo facile...",
         "question": "In che anno ci siamo conosciuti?",
-        "answers": ["2020", "2025", "2008", "2018"],
+        "answers": [
+          "2020",
+          "2025",
+          "2008",
+          "2018"
+        ],
         "correctIndex": 3
       },
       {
         "id": "wedding-question-2",
         "intro": "Un'altra facile",
         "question": "Qual è lo stile di birra preferito di Beniamino?",
-        "answers": ["Gose", "Stout", "IPA", "Non beve birra"],
+        "answers": [
+          "Gose",
+          "Stout",
+          "IPA",
+          "Non beve birra"
+        ],
         "correctIndex": 2
       },
       {
         "id": "wedding-question-3",
         "intro": "Continuiamo con quelle facili...",
         "question": "Quanti fratelli ha Gloria?",
-        "answers": ["Nessuno", "2", "1", "4"],
+        "answers": [
+          "Nessuno",
+          "2",
+          "1",
+          "4"
+        ],
         "correctIndex": 2
       },
       {
@@ -52,39 +67,64 @@
         "id": "wedding-question-6",
         "intro": "Chi comanda in casa?",
         "question": "Lo sappiamo, nessuno dovrebbe comandare... ma purtroppo succede e da noi comanda:",
-        "answers": ["Gloria", "Beniamino", "Nami", "Nessuno"],
+        "answers": [
+          "Gloria",
+          "Beniamino",
+          "Nami",
+          "Nessuno"
+        ],
         "correctIndex": 2
       },
       {
         "id": "wedding-question-7",
         "intro": "Vediamo chi indovina questa:",
         "question": "Chi dormirebbe sempre fino a tardi?",
-        "answers": ["Beniamino", "Gloria", "Nami", "Nessuno dei tre"],
+        "answers": [
+          "Beniamino",
+          "Gloria",
+          "Nami",
+          "Nessuno dei tre"
+        ],
         "correctIndex": 0
       },
       {
         "id": "wedding-question-8",
         "intro": "E poi...",
         "question": "Chi è il più competitivo?",
-        "answers": ["Beniamino", "Gloria", "Nami", "Nessuno dei tre"],
+        "answers": [
+          "Beniamino",
+          "Gloria",
+          "Nami",
+          "Nessuno dei tre"
+        ],
         "correctIndex": 0
       },
       {
         "id": "wedding-question-9",
         "intro": "Questa è difficile...",
         "question": "Chi è il più pigro?",
-        "answers": ["Beniamino", "Gloria", "Nami", "Nessuno dei tre"],
+        "answers": [
+          "Beniamino",
+          "Gloria",
+          "Nami",
+          "Nessuno dei tre"
+        ],
         "correctIndex": 0
       },
       {
         "id": "wedding-question-10",
         "intro": "E ora l'ultima",
         "question": "Chi ha chiesto di sposarl* a chi?",
-        "answers": ["Gloria", "Beniamino", "Nami", "Entrambi"],
+        "answers": [
+          "Gloria",
+          "Beniamino",
+          "Nami",
+          "Entrambi"
+        ],
         "correctIndex": 1
       }
     ],
     "submissions": []
   },
-  "updatedAt": "2026-07-09T23:33:03.857Z"
+  "updatedAt": "2026-07-10T08:30:48.163Z"
 }

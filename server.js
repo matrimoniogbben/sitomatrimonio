@@ -323,6 +323,24 @@ function leaderboardFromSubmissions(submissions) {
     }));
 }
 
+function quizParticipantKey(name, surname) {
+  return `${cleanText(name, 80)} ${cleanText(surname, 80)}`
+    .normalize("NFKC")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase("it-IT");
+}
+
+function hasQuizSubmission(submissions, name, surname) {
+  const key = quizParticipantKey(name, surname);
+  return Boolean(
+    key &&
+      (submissions || []).some(
+        (item) => quizParticipantKey(item.name, item.surname) === key,
+      ),
+  );
+}
+
 app.get("/api/health", (req, res) => {
   jsonOk(res, {
     status: "online",
@@ -411,11 +429,16 @@ app.post("/api/photos/confirm", async (req, res) => {
       }),
     );
 
-    if (uploaded.ContentType !== "image/webp") {
+    const uploadedSize = Number(uploaded.ContentLength || 0);
+    if (
+      uploaded.ContentType !== "image/webp" ||
+      !uploadedSize ||
+      uploadedSize > MAX_UPLOAD_MB * 1024 * 1024
+    ) {
       return jsonError(
         res,
         400,
-        "Il file caricato non è un'immagine WebP valida.",
+        "Il file caricato non è un'immagine WebP valida o supera il limite consentito.",
       );
     }
   } catch {
@@ -449,17 +472,19 @@ app.post("/api/photos/confirm", async (req, res) => {
 
 app.get("/api/photos", async (req, res) => {
   const data = await loadData();
-  const limit = Math.min(Number(req.query.limit || 60), 200);
+  const limit = Math.min(Math.max(Number(req.query.limit || 5), 1), 200);
+  const page = Math.max(Number(req.query.page || 1), 1);
   const search = cleanText(req.query.search || "", 120).toLowerCase();
 
-  const filtered = data.photos
-    .filter(
-      (photo) => !search || photo.uploaderName.toLowerCase().includes(search),
-    )
-    .slice(0, limit);
+  const filtered = data.photos.filter(
+    (photo) => !search || photo.uploaderName.toLowerCase().includes(search),
+  );
+  const offset = (page - 1) * limit;
+  const photos = await Promise.all(
+    filtered.slice(offset, offset + limit).map(decoratePhoto),
+  );
 
-  const photos = await Promise.all(filtered.map(decoratePhoto));
-  return jsonOk(res, { photos });
+  return jsonOk(res, { photos, total: filtered.length, page, limit });
 });
 
 app.get("/api/photos/download", async (req, res) => {
@@ -473,9 +498,6 @@ app.get("/api/photos/download", async (req, res) => {
     return jsonError(res, 400, "Chiave foto non valida.");
   }
 
-  const publicUrl = publicUrlForKey(key);
-  if (publicUrl) return res.redirect(publicUrl);
-
   if (!requireR2(res)) return;
   const url = await signedGetUrl(key, filename);
   return res.redirect(url);
@@ -485,6 +507,7 @@ app.post("/api/messages", async (req, res) => {
   const name = cleanText(req.body.name, 120);
   const email = cleanEmail(req.body.email);
   const message = cleanText(req.body.message, 1200);
+  const type = req.body.type === "contact" ? "contact" : "guestbook";
 
   if (!name || !message) {
     return jsonError(res, 400, "Inserisci nome e messaggio.");
@@ -496,6 +519,7 @@ app.post("/api/messages", async (req, res) => {
       name,
       email,
       message,
+      type,
       read: false,
       createdAt: new Date().toISOString(),
     };
@@ -522,6 +546,41 @@ app.get("/api/quiz/questions", async (req, res) => {
   return jsonOk(res, { questions });
 });
 
+app.get("/api/quiz/participation", async (req, res) => {
+  const name = cleanText(req.query.name, 80);
+  const surname = cleanText(req.query.surname, 80);
+  if (!name || !surname) {
+    return jsonError(res, 400, "Inserisci nome e cognome per iniziare il quiz.");
+  }
+  const data = await loadData();
+  return jsonOk(res, {
+    participated: hasQuizSubmission(data.quiz.submissions, name, surname),
+  });
+});
+
+app.post("/api/quiz/abandon", async (req, res) => {
+  const name = cleanText(req.body.name, 80);
+  const surname = cleanText(req.body.surname, 80);
+  if (!name || !surname) return jsonOk(res, { recorded: false });
+
+  const saved = await mutateData((data) => {
+    if (hasQuizSubmission(data.quiz.submissions, name, surname)) return null;
+    const submission = {
+      id: crypto.randomUUID(),
+      name,
+      surname,
+      score: 0,
+      correctAnswers: 0,
+      total: 0,
+      elapsedMs: 0,
+      createdAt: new Date().toISOString(),
+    };
+    data.quiz.submissions.unshift(submission);
+    return submission;
+  });
+  return jsonOk(res, { recorded: Boolean(saved) });
+});
+
 app.post("/api/quiz/submit", async (req, res) => {
   const name = cleanText(req.body.name, 80);
   const surname = cleanText(req.body.surname, 80);
@@ -536,11 +595,7 @@ app.post("/api/quiz/submit", async (req, res) => {
   }
 
   const saved = await mutateData((data) => {
-    const alreadyPlayed = data.quiz.submissions.some(
-      (item) =>
-        item.name.toLowerCase() === name.toLowerCase() &&
-        item.surname.toLowerCase() === surname.toLowerCase(),
-    );
+    const alreadyPlayed = hasQuizSubmission(data.quiz.submissions, name, surname);
     if (alreadyPlayed) return null;
 
     const questions = data.quiz.questions;
@@ -640,32 +695,45 @@ app.delete("/api/admin/photos", requireAdmin, async (req, res) => {
     return jsonError(res, 400, "Seleziona almeno una foto da eliminare.");
   }
 
-  let r2Deleted = false;
+  if (!s3) {
+    return jsonError(res, 503, "Cloudflare R2 non è configurato.");
+  }
 
-  if (s3) {
-    await s3.send(
-      new DeleteObjectsCommand({
-        Bucket: process.env.R2_BUCKET,
-        Delete: {
-          Objects: keys.map((Key) => ({ Key })),
-          Quiet: true,
-        },
-      }),
-    );
-    r2Deleted = true;
+  const deleted = await s3.send(
+    new DeleteObjectsCommand({
+      Bucket: process.env.R2_BUCKET,
+      Delete: {
+        Objects: keys.map((Key) => ({ Key })),
+        Quiet: true,
+      },
+    }),
+  );
+  const failed = new Set((deleted.Errors || []).map((item) => item.Key));
+  const deletedKeys = keys.filter((key) => !failed.has(key));
+  if (!deletedKeys.length) {
+    return jsonError(res, 502, "Cloudflare R2 non ha eliminato le foto richieste.");
   }
 
   const remaining = await mutateData((data) => {
-    data.photos = data.photos.filter((photo) => !keys.includes(photo.key));
+    data.photos = data.photos.filter((photo) => !deletedKeys.includes(photo.key));
     return data.photos.length;
   });
 
-  return jsonOk(res, { deleted: keys.length, remaining, r2Deleted });
+  return jsonOk(res, { deleted: deletedKeys.length, remaining, failed: failed.size });
 });
 
 app.get("/api/admin/messages", requireAdmin, async (req, res) => {
   const data = await loadData();
-  return jsonOk(res, { messages: data.messages });
+  const type =
+    req.query.type === "contact"
+      ? "contact"
+      : req.query.type === "guestbook"
+        ? "guestbook"
+        : "";
+  const messages = type
+    ? data.messages.filter((message) => (message.type || "guestbook") === type)
+    : data.messages;
+  return jsonOk(res, { messages });
 });
 
 app.patch("/api/admin/messages/:id/read", requireAdmin, async (req, res) => {
@@ -733,9 +801,10 @@ app.post("/api/admin/quiz/questions", requireAdmin, async (req, res) => {
   const correctIndex = Number(req.body.correctIndex);
 
   if (
-    !question ||
-    answers.length < 2 ||
-    correctIndex < 0 ||
+      !question ||
+      answers.length < 2 ||
+      !Number.isInteger(correctIndex) ||
+      correctIndex < 0 ||
     correctIndex >= answers.length
   ) {
     return jsonError(
@@ -760,6 +829,30 @@ app.post("/api/admin/quiz/questions", requireAdmin, async (req, res) => {
   return jsonOk(res, { question: saved });
 });
 
+app.put("/api/admin/quiz/questions/order", requireAdmin, async (req, res) => {
+  const ids = Array.isArray(req.body.ids)
+    ? req.body.ids.map((id) => cleanText(id, 80)).filter(Boolean)
+    : [];
+
+  const updated = await mutateData((data) => {
+    const knownIds = data.quiz.questions.map((question) => question.id);
+    if (
+      ids.length !== knownIds.length ||
+      new Set(ids).size !== ids.length ||
+      ids.some((id) => !knownIds.includes(id))
+    ) {
+      return null;
+    }
+
+    const byId = new Map(data.quiz.questions.map((question) => [question.id, question]));
+    data.quiz.questions = ids.map((id) => byId.get(id));
+    return data.quiz.questions;
+  });
+
+  if (!updated) return jsonError(res, 400, "Ordine delle domande non valido.");
+  return jsonOk(res, { questions: updated });
+});
+
 app.put("/api/admin/quiz/questions/:id", requireAdmin, async (req, res) => {
   const id = cleanText(req.params.id, 80);
   const question = cleanText(req.body.question, 300);
@@ -772,9 +865,10 @@ app.put("/api/admin/quiz/questions/:id", requireAdmin, async (req, res) => {
   const correctIndex = Number(req.body.correctIndex);
 
   if (
-    !question ||
-    answers.length < 2 ||
-    correctIndex < 0 ||
+      !question ||
+      answers.length < 2 ||
+      !Number.isInteger(correctIndex) ||
+      correctIndex < 0 ||
     correctIndex >= answers.length
   ) {
     return jsonError(
