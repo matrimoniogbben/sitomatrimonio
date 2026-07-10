@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,6 +45,16 @@ app.use(
   }),
 );
 app.set("trust proxy", true);
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+app.use(
+  rateLimit({
+    windowMs: 60_000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { ok: false, message: "Troppe richieste. Riprova tra un minuto." },
+  }),
+);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.text({ type: "text/plain", limit: "1mb" }));
 app.use(
@@ -118,6 +130,12 @@ function cleanText(value, max = 160) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, max);
+}
+
+function timeToMinutes(value) {
+  if (!/^\d{2}:\d{2}$/.test(value)) return -1;
+  const [h, m] = value.split(":").map(Number);
+  return h * 60 + m;
 }
 
 function cleanEmail(value) {
@@ -524,12 +542,29 @@ app.get("/api/photos", async (req, res) => {
     return jsonError(res, 400, "Orario filtro non valido.");
   }
 
-  const filtered = data.photos.filter(
+  let filtered = data.photos.filter(
     (photo) =>
       (!search || photo.uploaderName.toLowerCase().includes(search)) &&
-      (!date || photo.createdAt?.slice(0, 10) === date) &&
-      (!time || photo.createdAt?.slice(11, 16) === time),
+      (!date || photo.createdAt?.slice(0, 10) === date),
   );
+
+  if (time) {
+    const target = timeToMinutes(time);
+    if (target >= 0) {
+      filtered = filtered
+        .map((photo) => {
+          const diff = timeToMinutes(photo.createdAt?.slice(11, 16) || "");
+          return { photo, diff: diff >= 0 ? Math.abs(diff - target) : 99999 };
+        })
+        .sort((a, b) => a.diff - b.diff || (a.photo.createdAt || "").localeCompare(b.photo.createdAt || ""))
+        .map((item) => item.photo);
+    }
+  } else if (!search && !date) {
+    for (let i = filtered.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+    }
+  }
   const offset = (page - 1) * limit;
   const photos = await Promise.all(
     filtered.slice(offset, offset + limit).map((photo) => decoratePhoto(photo, req)),
@@ -652,10 +687,10 @@ app.post("/api/quiz/abandon", async (req, res) => {
       score: 0,
       correctAnswers: 0,
       total: 0,
-      elapsedMs: 0,
+      elapsedMs: 7200000,
       createdAt: new Date().toISOString(),
     };
-    data.quiz.submissions.unshift(submission);
+    data.quiz.submissions.push(submission);
     return submission;
   });
   return jsonOk(res, { recorded: Boolean(saved) });

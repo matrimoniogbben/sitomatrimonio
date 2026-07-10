@@ -25,7 +25,7 @@ const state = {
   adminPhotos: [],
   adminPages: { photos: 1, messages: 1, contacts: 1, questions: 1, leaderboard: 1 },
   adminQuestionOrderDirty: false,
-  gallery: { page: 1, search: "", date: "", time: "", selecting: false, selected: new Set() },
+  gallery: { page: 1, search: "", date: "", time: "", selecting: false, selected: new Set(), items: [] },
   upload: { files: [], previewUrls: [] },
 };
 
@@ -176,19 +176,30 @@ function initHome() {
   }, 60000);
 }
 
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 async function loadPhotoCarousel() {
   const carousel = $("[data-photo-carousel]");
   if (!carousel) return;
 
   try {
-    const data = await api("/api/photos?limit=10", { admin: false });
-    const photos = data.photos || [];
+    const data = await api("/api/photos?limit=50", { admin: false });
+    let photos = data.photos || [];
 
     if (!photos.length) {
       carousel.innerHTML = emptyAlbumMarkup();
       carousel.closest(".carousel-shell")?.classList.add("is-empty");
       return;
     }
+
+    shuffleArray(photos);
+    photos = photos.slice(0, 20);
 
     carousel.closest(".carousel-shell")?.classList.remove("is-empty");
     carousel.innerHTML = photos
@@ -382,6 +393,40 @@ async function initQuiz() {
     event.preventDefault();
     event.returnValue = " ";
     try { sessionStorage.setItem("quizAbandoned", "true"); } catch {}
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (!state.quiz.inProgress) return;
+    if (event.key === "F5" || (event.ctrlKey && event.key === "r") || (event.metaKey && event.key === "r")) {
+      event.preventDefault();
+      const total = state.quiz.questions.length;
+      const dialog = document.createElement("div");
+      dialog.className = "success-dialog";
+      dialog.setAttribute("role", "dialog");
+      dialog.setAttribute("aria-modal", "true");
+      dialog.innerHTML = `
+        <div class="success-dialog-card">
+          <img src="assets/couple-mark.png" alt="Gloria e Beniamino">
+          <p class="eyebrow">Attenzione</p>
+          <h2>Stai per ricaricare la pagina</h2>
+          <p>Se ricarichi ora il quiz verrà segnato come 0/${total} e non potrai rifarlo. Vuoi continuare?</p>
+          <div class="gallery-actions" style="justify-content:center;margin-top:1.2rem">
+            <button class="btn btn-primary" type="button" data-confirm-reload>Ricarica</button>
+            <button class="btn btn-secondary" type="button" data-cancel-reload>Resta</button>
+          </div>
+        </div>`;
+      document.body.appendChild(dialog);
+      const close = () => dialog.remove();
+      $("[data-cancel-reload]", dialog)?.addEventListener("click", close);
+      $("[data-confirm-reload]", dialog)?.addEventListener("click", () => {
+        close();
+        try { sessionStorage.setItem("quizAbandoned", "true"); } catch {}
+        window.location.reload();
+      });
+      dialog.addEventListener("click", (event) => {
+        if (event.target === dialog) close();
+      });
+    }
   });
 
   window.addEventListener("pagehide", () => {
@@ -893,6 +938,7 @@ async function loadGallery(
     const query = `?search=${encodeURIComponent(search)}&date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}&limit=18&page=${page}`;
     const data = await api(`/api/photos${query}`, { admin: false });
     const photos = data.photos || [];
+    state.gallery.items = photos;
 
     if (!photos.length) {
       gallery.innerHTML = `<div class="empty-state"><p>Nessuna foto trovata.</p></div>`;
@@ -964,19 +1010,11 @@ function renderGalleryPagination(total, limit, currentPage) {
 async function downloadSelectedPhotos() {
   const keys = Array.from(state.gallery.selected);
   if (!keys.length) return;
-  try {
-    const data = await api(
-      `/api/photos?search=${encodeURIComponent(state.gallery.search)}&date=${encodeURIComponent(state.gallery.date)}&time=${encodeURIComponent(state.gallery.time)}&limit=200&page=1`,
-      { admin: false },
-    );
-    data.photos
-      .filter((photo) => keys.includes(photo.key))
-      .forEach((photo, index) => {
-        setTimeout(() => triggerDownload(photo.downloadUrl, photo.originalName), index * 500);
-      });
-  } catch (error) {
-    alert(error.message);
-  }
+  state.gallery.items
+    .filter((photo) => keys.includes(photo.key))
+    .forEach((photo, index) => {
+      setTimeout(() => triggerDownload(photo.downloadUrl, photo.originalName || "foto-gloria-beniamino.jpg"), index * 500);
+    });
 }
 
 function initAdmin() {

@@ -1260,6 +1260,27 @@ textarea {
 .developer-page .btn {
   margin-top: 1rem;
 }
+.polaroid-dev {
+  width: min(100%, 300px);
+  margin: 0 auto 2rem;
+  padding: 0.8rem 0.8rem 1.2rem;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  transform: rotate(-1.5deg);
+  text-align: center;
+}
+.polaroid-dev img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+.polaroid-dev-caption {
+  margin: 0.6rem 0 0 !important;
+  font-family: var(--serif);
+  font-size: 0.78rem !important;
+  color: var(--ink) !important;
+}
 .stats-grid {
   display: grid;
   margin-bottom: 1.2rem;
