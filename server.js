@@ -3,9 +3,9 @@ import express from "express";
 import cors from "cors";
 import crypto from "node:crypto";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import sharp from "sharp";
 import {
   S3Client,
   PutObjectCommand,
@@ -213,13 +213,21 @@ async function loadData() {
     );
     dataCache = normalizeData(JSON.parse(await object.Body.transformToString()));
   } catch (error) {
-    if (error.name !== "NoSuchKey" && error.Code !== "NoSuchKey") throw error;
-    // First R2-backed deployment: preserve the existing Render JSON once.
+    if (!isMissingR2ObjectError(error)) throw error;
+    // Only a confirmed missing object may be initialized from the local backup.
     dataCache = await loadLocalData();
     await persistData(dataCache);
   }
 
   return dataCache;
+}
+
+function isMissingR2ObjectError(error) {
+  return (
+    error?.name === "NoSuchKey" ||
+    error?.Code === "NoSuchKey" ||
+    error?.code === "NoSuchKey"
+  );
 }
 
 async function persistData(data) {
@@ -299,14 +307,15 @@ async function signedGetUrl(key, downloadName = undefined) {
   });
 }
 
-async function decoratePhoto(photo) {
+async function decoratePhoto(photo, req = null) {
   const publicUrl = publicUrlForKey(photo.key);
   const url = publicUrl || (await signedGetUrl(photo.key));
+  const base = req ? `${req.protocol}://${req.get("host")}` : "";
   return {
     ...photo,
     url,
-    downloadUrl: `/api/photos/download?key=${encodeURIComponent(photo.key)}&filename=${encodeURIComponent(
-      photo.originalName || "foto.webp",
+    downloadUrl: `${base}/api/photos/download?key=${encodeURIComponent(photo.key)}&filename=${encodeURIComponent(
+      photo.originalName || "foto-gloria-beniamino.jpg",
     )}`,
   };
 }
@@ -496,7 +505,7 @@ app.post("/api/photos/confirm", async (req, res) => {
     return photo;
   });
 
-  return jsonOk(res, { photo: await decoratePhoto(saved) });
+  return jsonOk(res, { photo: await decoratePhoto(saved, req) });
 });
 
 app.get("/api/photos", async (req, res) => {
@@ -522,7 +531,7 @@ app.get("/api/photos", async (req, res) => {
   );
   const offset = (page - 1) * limit;
   const photos = await Promise.all(
-    filtered.slice(offset, offset + limit).map(decoratePhoto),
+    filtered.slice(offset, offset + limit).map((photo) => decoratePhoto(photo, req)),
   );
 
   return jsonOk(res, { photos, total: filtered.length, page, limit });
@@ -530,10 +539,10 @@ app.get("/api/photos", async (req, res) => {
 
 app.get("/api/photos/download", async (req, res) => {
   const key = cleanText(req.query.key, 260);
-  const filename = fileBaseName(cleanText(
-    req.query.filename || "foto-gloria-beniamino.webp",
-    160,
-  ));
+  const requestedName = fileBaseName(
+    cleanText(req.query.filename || "foto-gloria-beniamino.jpg", 160),
+  );
+  const filename = `${requestedName.replace(/\.[^.]+$/, "") || "foto-gloria-beniamino"}.jpg`;
 
   if (!key.startsWith("photos/")) {
     return jsonError(res, 400, "Chiave foto non valida.");
@@ -549,17 +558,19 @@ app.get("/api/photos/download", async (req, res) => {
     const object = await s3.send(
       new GetObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key }),
     );
+    const source = Buffer.from(await object.Body.transformToByteArray());
+    const jpeg = await sharp(source, { failOn: "error" })
+      .jpeg({ quality: 90, chromaSubsampling: "4:4:4" })
+      .toBuffer();
     res.set({
-      "Content-Type": object.ContentType || "image/webp",
+      "Content-Type": "image/jpeg",
       "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Length": String(jpeg.length),
     });
-    if (object.ContentLength) res.set("Content-Length", String(object.ContentLength));
-    await pipeline(object.Body, res);
+    return res.send(jpeg);
   } catch (error) {
-    if (!res.headersSent) {
-      return jsonError(res, 502, "Impossibile scaricare la foto.");
-    }
-    res.destroy(error);
+    console.error("Photo download conversion failed", error);
+    return jsonError(res, 502, "Impossibile convertire la foto in JPEG.");
   }
 });
 
@@ -748,7 +759,7 @@ app.get("/api/admin/dashboard", requireAdmin, async (req, res) => {
 
 app.get("/api/admin/photos", requireAdmin, async (req, res) => {
   const data = await loadData();
-  const photos = await Promise.all(data.photos.map(decoratePhoto));
+  const photos = await Promise.all(data.photos.map((photo) => decoratePhoto(photo, req)));
   return jsonOk(res, { photos });
 });
 

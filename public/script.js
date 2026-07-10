@@ -7,6 +7,7 @@ const apiBaseUrl = String(window.APP_CONFIG?.apiBaseUrl || "").replace(
   /\/+$/,
   "",
 );
+const apiUrl = (path) => `${apiBaseUrl}${path}`;
 
 const state = {
   quiz: {
@@ -137,7 +138,7 @@ async function api(path, options = {}) {
     headers.Authorization = `Bearer ${state.adminToken}`;
   }
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const response = await fetch(apiUrl(path), {
     ...options,
     headers,
     body:
@@ -282,6 +283,45 @@ async function initQuiz() {
     );
   }
 
+  const nameInput = $("[name='name']", form);
+  const surnameInput = $("[name='surname']", form);
+  let identityCheckId = 0;
+  const checkParticipation = async () => {
+    const name = nameInput?.value.trim() || "";
+    const surname = surnameInput?.value.trim() || "";
+    const startAlert = $("[data-quiz-start-alert]");
+    const checkId = ++identityCheckId;
+
+    if (!name || !surname) {
+      startAlert?.classList.add("hidden");
+      return false;
+    }
+
+    try {
+      const check = await api(
+        `/api/quiz/participation?name=${encodeURIComponent(name)}&surname=${encodeURIComponent(surname)}`,
+        { admin: false },
+      );
+      if (checkId !== identityCheckId) return false;
+      if (check.participated) {
+        startAlert?.classList.remove("hidden");
+        $("h3", startAlert).textContent =
+          "Hai già partecipato al quiz con questo nome e cognome.";
+        return true;
+      }
+      startAlert?.classList.add("hidden");
+    } catch {
+      if (checkId === identityCheckId) startAlert?.classList.add("hidden");
+    }
+    return false;
+  };
+
+  [nameInput, surnameInput].forEach((input) => {
+    input?.addEventListener("input", checkParticipation);
+    input?.addEventListener("change", checkParticipation);
+    input?.addEventListener("blur", checkParticipation);
+  });
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
@@ -299,22 +339,7 @@ async function initQuiz() {
     }
 
     const startAlert = $("[data-quiz-start-alert]");
-    try {
-      const check = await api(
-        `/api/quiz/participation?name=${encodeURIComponent(state.quiz.participant.name)}&surname=${encodeURIComponent(state.quiz.participant.surname)}`,
-        { admin: false },
-      );
-      if (check.participated) {
-        startAlert?.classList.remove("hidden");
-        $("h3", startAlert).textContent =
-          "Hai già partecipato al quiz. Chiedi agli sposi se vuoi riprovare.";
-        return;
-      }
-    } catch (error) {
-      startAlert?.classList.remove("hidden");
-      $("h3", startAlert).textContent = error.message;
-      return;
-    }
+    if (await checkParticipation()) return;
 
     startAlert?.classList.add("hidden");
     state.quiz.startedAt = performance.now();
@@ -798,7 +823,7 @@ async function loadGallery(
           ${state.gallery.selecting ? `<label class="photo-select"><input type="checkbox" value="${escapeAttr(photo.key)}" ${state.gallery.selected.has(photo.key) ? "checked" : ""}> Seleziona</label>` : ""}
           <div class="gallery-caption">
             <span><strong>${escapeHtml(photo.uploaderName)}</strong><small>${formatDate(photo.createdAt)}</small></span>
-            <a class="download-pill" href="${escapeAttr(photo.downloadUrl)}" target="_blank" rel="noreferrer">Scarica</a>
+            <a class="download-pill" href="${escapeAttr(apiUrl(photo.downloadUrl))}" target="_blank" rel="noreferrer">Scarica</a>
           </div>
         </article>
       `,
@@ -863,7 +888,7 @@ async function downloadSelectedPhotos() {
     data.photos
       .filter((photo) => keys.includes(photo.key))
       .forEach((photo, index) => {
-        window.setTimeout(() => window.open(photo.downloadUrl, "_blank"), index * 500);
+        window.setTimeout(() => window.open(apiUrl(photo.downloadUrl), "_blank"), index * 500);
       });
   } catch (error) {
     alert(error.message);
@@ -1026,7 +1051,7 @@ function downloadSelectedAdminPhotos() {
   keys.forEach((key, index) => {
     const photo = state.adminPhotos.find((item) => item.key === key);
     if (!photo) return;
-    window.setTimeout(() => window.open(photo.downloadUrl, "_blank"), index * 500);
+    window.setTimeout(() => window.open(apiUrl(photo.downloadUrl), "_blank"), index * 500);
   });
 }
 
