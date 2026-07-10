@@ -7,7 +7,7 @@ const apiBaseUrl = String(window.APP_CONFIG?.apiBaseUrl || "").replace(
   /\/+$/,
   "",
 );
-const apiUrl = (path) => `${apiBaseUrl}${path}`;
+const apiUrl = (path) => /^https?:\/\//i.test(path) ? path : `${apiBaseUrl}${path}`;
 
 const state = {
   quiz: {
@@ -373,7 +373,7 @@ async function initQuiz() {
   window.addEventListener("beforeunload", (event) => {
     if (!state.quiz.inProgress) return;
     event.preventDefault();
-    event.returnValue = "Se ricarichi la pagina il tentativo verrà segnato 0/0 e non potrai rifare il quiz.";
+    event.returnValue = "";
   });
 
   window.addEventListener("pagehide", () => {
@@ -383,6 +383,55 @@ async function initQuiz() {
       `${apiBaseUrl}/api/quiz/abandon`,
       new Blob([payload], { type: "text/plain" }),
     );
+  });
+
+  initQuizNavigationGuard();
+}
+
+function initQuizNavigationGuard() {
+  const handler = (event) => {
+    if (!state.quiz.inProgress) return;
+    const link = event.target.closest("a");
+    if (!link || link.hasAttribute("data-close-success-dialog")) return;
+    event.preventDefault();
+    const target = link.href;
+    showQuizAbandonDialog(target);
+  };
+  document.addEventListener("click", handler);
+}
+
+function showQuizAbandonDialog(navigateTo) {
+  const total = state.quiz.questions.length;
+  const dialog = document.createElement("div");
+  dialog.className = "success-dialog";
+  dialog.setAttribute("role", "dialog");
+  dialog.setAttribute("aria-modal", "true");
+  dialog.innerHTML = `
+    <div class="success-dialog-card">
+      <img src="assets/couple-mark.png" alt="Gloria e Beniamino">
+      <p class="eyebrow">Attenzione</p>
+      <h2>Stai uscendo dal quiz</h2>
+      <p>Se esci ora il quiz verrà segnato come 0/${total} e non potrai rifarlo. Vuoi continuare?</p>
+      <div class="gallery-actions" style="justify-content:center;margin-top:1.2rem">
+        <button class="btn btn-primary" type="button" data-confirm-quiz-exit>Esci dal quiz</button>
+        <button class="btn btn-secondary" type="button" data-cancel-quiz-exit>Resta</button>
+      </div>
+    </div>`;
+  document.body.appendChild(dialog);
+  const close = () => dialog.remove();
+  $("[data-cancel-quiz-exit]", dialog)?.addEventListener("click", close);
+  $("[data-confirm-quiz-exit]", dialog)?.addEventListener("click", () => {
+    close();
+    if (navigateTo) {
+      const beaconUrl = `${apiBaseUrl}/api/quiz/abandon`;
+      const payload = JSON.stringify(state.quiz.participant);
+      fetch(beaconUrl, { method: "POST", headers: { "Content-Type": "text/plain" }, body: payload, keepalive: true }).catch(() => {});
+      state.quiz.inProgress = false;
+      window.location.href = navigateTo;
+    }
+  });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) close();
   });
 }
 
@@ -806,7 +855,7 @@ async function loadGallery(
     state.gallery.page = page;
     state.gallery.date = date;
     state.gallery.time = time;
-    const query = `?search=${encodeURIComponent(search)}&date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}&limit=5&page=${page}`;
+    const query = `?search=${encodeURIComponent(search)}&date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}&limit=18&page=${page}`;
     const data = await api(`/api/photos${query}`, { admin: false });
     const photos = data.photos || [];
 
