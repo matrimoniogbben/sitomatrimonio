@@ -26,7 +26,7 @@ const state = {
   adminPages: { photos: 1, messages: 1, contacts: 1, questions: 1, leaderboard: 1 },
   adminQuestionOrderDirty: false,
   gallery: { page: 1, search: "", date: "", time: "", selecting: false, selected: new Set(), items: [] },
-  upload: { files: [], previewUrls: [] },
+  upload: { files: [], previewUrls: [], previewIndex: 0 },
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -691,6 +691,7 @@ function initUploadPreview() {
 
   input.addEventListener("change", () => {
     state.upload.files = Array.from(input.files || []);
+    state.upload.previewIndex = 0;
     renderUploadPreview(preview);
   });
 }
@@ -699,21 +700,50 @@ function renderUploadPreview(preview = $("[data-upload-preview]")) {
   if (!preview) return;
   state.upload.previewUrls.forEach((url) => URL.revokeObjectURL(url));
   state.upload.previewUrls = [];
-
   preview.replaceChildren();
-  state.upload.files.forEach((file, index) => {
-    const url = URL.createObjectURL(file);
-    state.upload.previewUrls.push(url);
-    const figure = document.createElement("figure");
-    figure.innerHTML = `<img src="${escapeAttr(url)}" alt="Anteprima ${escapeAttr(file.name)}"><figcaption>${escapeHtml(file.name)}</figcaption><button type="button" class="remove-preview" data-remove-preview="${index}" aria-label="Rimuovi ${escapeAttr(file.name)}">Rimuovi</button>`;
-    preview.appendChild(figure);
+  const files = state.upload.files;
+  if (!files.length) return;
+
+  state.upload.previewUrls = files.map((file) => URL.createObjectURL(file));
+  const idx = Math.min(state.upload.previewIndex, files.length - 1);
+  state.upload.previewIndex = idx;
+
+  const wrap = document.createElement("div");
+  wrap.className = "upload-carousel";
+
+  wrap.innerHTML = `
+    <div class="upload-carousel-frame">
+      <img src="${escapeAttr(state.upload.previewUrls[idx])}" alt="Anteprima ${escapeAttr(files[idx].name)}">
+      <button class="remove-preview" type="button" data-remove-preview aria-label="Rimuovi foto">Rimuovi</button>
+    </div>
+    <div class="upload-carousel-actions">
+      <button class="btn btn-ghost" type="button" data-prev-preview ${idx === 0 ? "disabled" : ""}>&larr; Precedente</button>
+      <span class="upload-carousel-counter">${idx + 1} / ${files.length}</span>
+      <button class="btn btn-ghost" type="button" data-next-preview ${idx === files.length - 1 ? "disabled" : ""}>Successiva &rarr;</button>
+    </div>`;
+
+  preview.appendChild(wrap);
+
+  $("[data-remove-preview]", wrap).addEventListener("click", () => {
+    state.upload.files.splice(state.upload.previewIndex, 1);
+    if (state.upload.previewIndex >= state.upload.files.length) {
+      state.upload.previewIndex = Math.max(0, state.upload.files.length - 1);
+    }
+    renderUploadPreview(preview);
   });
 
-  $$('[data-remove-preview]', preview).forEach((button) => {
-    button.addEventListener("click", () => {
-      state.upload.files.splice(Number(button.dataset.removePreview), 1);
+  $("[data-prev-preview]", wrap).addEventListener("click", () => {
+    if (state.upload.previewIndex > 0) {
+      state.upload.previewIndex -= 1;
       renderUploadPreview(preview);
-    });
+    }
+  });
+
+  $("[data-next-preview]", wrap).addEventListener("click", () => {
+    if (state.upload.previewIndex < state.upload.files.length - 1) {
+      state.upload.previewIndex += 1;
+      renderUploadPreview(preview);
+    }
   });
 }
 
@@ -739,8 +769,8 @@ function initUpload() {
       return;
     }
 
-    if (files.length > 10 || files.some((file) => file.size > 20 * 1024 * 1024)) {
-      status.innerHTML = `<div class="upload-line">Puoi caricare al massimo 10 foto, fino a 20 MB ciascuna.</div>`;
+    if (files.some((file) => file.size > 20 * 1024 * 1024)) {
+      status.innerHTML = `<div class="upload-line">Ogni foto non può superare i 20 MB.</div>`;
       return;
     }
 

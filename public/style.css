@@ -1082,39 +1082,48 @@ textarea {
   color: var(--muted);
   font-size: 0.76rem;
 }
-.upload-preview {
+.upload-carousel {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
-.upload-preview figure {
+.upload-carousel-frame {
   position: relative;
-  min-width: 0;
-  margin: 0;
-}
-.upload-preview img {
   width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
+  max-width: 420px;
+  margin: 0 auto;
 }
-.upload-preview figcaption {
-  overflow: hidden;
-  margin-top: 0.25rem;
+.upload-carousel-frame img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  background: var(--ivory);
+  border-radius: 6px;
+}
+.upload-carousel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+.upload-carousel-counter {
+  font-size: 0.82rem;
+  font-weight: 500;
   color: var(--muted);
-  font-size: 0.62rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 5rem;
+  text-align: center;
 }
 .remove-preview {
   position: absolute;
-  top: 0.3rem;
-  right: 0.3rem;
-  padding: 0.3rem 0.4rem;
+  top: 0.4rem;
+  right: 0.4rem;
+  padding: 0.3rem 0.6rem;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.94);
   color: var(--wine);
-  font-size: 0.58rem;
+  font-size: 0.6rem;
   font-weight: 600;
+  border-radius: 4px;
 }
 .upload-line {
   padding: 0.55rem 0.65rem;
