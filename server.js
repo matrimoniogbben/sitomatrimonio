@@ -340,11 +340,11 @@ async function decoratePhoto(photo, req = null) {
 }
 
 function leaderboardFromSubmissions(submissions) {
-  const byEmail = new Map();
+  const byName = new Map();
 
   for (const item of submissions || []) {
-    const key = `${item.name}-${item.surname}`.toLowerCase();
-    const previous = byEmail.get(key);
+    const key = `${item.name}`.toLowerCase();
+    const previous = byName.get(key);
 
     if (
       !previous ||
@@ -355,11 +355,11 @@ function leaderboardFromSubmissions(submissions) {
         (item.elapsedMs ?? Number.MAX_SAFE_INTEGER) <
           (previous.elapsedMs ?? Number.MAX_SAFE_INTEGER))
     ) {
-      byEmail.set(key, item);
+      byName.set(key, item);
     }
   }
 
-  return Array.from(byEmail.values())
+  return Array.from(byName.values())
     .sort((a, b) => {
       const correctDifference =
         (b.correctAnswers ?? b.score) - (a.correctAnswers ?? a.score);
@@ -374,7 +374,6 @@ function leaderboardFromSubmissions(submissions) {
       id: item.id,
       position: index + 1,
       name: item.name,
-      surname: item.surname,
       score: item.score,
       correctAnswers: Number.isFinite(item.correctAnswers)
         ? item.correctAnswers
@@ -385,20 +384,20 @@ function leaderboardFromSubmissions(submissions) {
     }));
 }
 
-function quizParticipantKey(name, surname) {
-  return `${cleanText(name, 80)} ${cleanText(surname, 80)}`
+function quizParticipantKey(name) {
+  return `${cleanText(name, 80)}`
     .normalize("NFKC")
     .replace(/\s+/g, " ")
     .trim()
     .toLocaleLowerCase("it-IT");
 }
 
-function hasQuizSubmission(submissions, name, surname) {
-  const key = quizParticipantKey(name, surname);
+function hasQuizSubmission(submissions, name) {
+  const key = quizParticipantKey(name);
   return Boolean(
     key &&
       (submissions || []).some(
-        (item) => quizParticipantKey(item.name, item.surname) === key,
+        (item) => quizParticipantKey(item.name) === key,
       ),
   );
 }
@@ -655,13 +654,12 @@ app.get("/api/quiz/questions", async (req, res) => {
 
 app.get("/api/quiz/participation", async (req, res) => {
   const name = cleanText(req.query.name, 80);
-  const surname = cleanText(req.query.surname, 80);
-  if (!name || !surname) {
-    return jsonError(res, 400, "Inserisci nome e cognome per iniziare il quiz.");
+  if (!name) {
+    return jsonError(res, 400, "Inserisci nome o nickname per iniziare il quiz.");
   }
   const data = await loadData();
   return jsonOk(res, {
-    participated: hasQuizSubmission(data.quiz.submissions, name, surname),
+    participated: hasQuizSubmission(data.quiz.submissions, name),
   });
 });
 
@@ -675,15 +673,13 @@ app.post("/api/quiz/abandon", async (req, res) => {
     }
   }
   const name = cleanText(body?.name, 80);
-  const surname = cleanText(body?.surname, 80);
-  if (!name || !surname) return jsonOk(res, { recorded: false });
+  if (!name) return jsonOk(res, { recorded: false });
 
   const saved = await mutateData((data) => {
-    if (hasQuizSubmission(data.quiz.submissions, name, surname)) return null;
+    if (hasQuizSubmission(data.quiz.submissions, name)) return null;
     const submission = {
       id: crypto.randomUUID(),
       name,
-      surname,
       score: 0,
       correctAnswers: 0,
       total: 0,
@@ -698,19 +694,18 @@ app.post("/api/quiz/abandon", async (req, res) => {
 
 app.post("/api/quiz/submit", async (req, res) => {
   const name = cleanText(req.body.name, 80);
-  const surname = cleanText(req.body.surname, 80);
   const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
   const elapsedMs = Math.min(
     Math.max(Number(req.body.elapsedMs) || 0, 0),
     7_200_000,
   );
 
-  if (!name || !surname) {
-    return jsonError(res, 400, "Nome e cognome sono obbligatori.");
+  if (!name) {
+    return jsonError(res, 400, "Nome o nickname sono obbligatori.");
   }
 
   const saved = await mutateData((data) => {
-    const alreadyPlayed = hasQuizSubmission(data.quiz.submissions, name, surname);
+    const alreadyPlayed = hasQuizSubmission(data.quiz.submissions, name);
     if (alreadyPlayed) return null;
 
     const questions = data.quiz.questions;
@@ -731,7 +726,6 @@ app.post("/api/quiz/submit", async (req, res) => {
     const submission = {
       id: crypto.randomUUID(),
       name,
-      surname,
       score,
       correctAnswers,
       total: questions.length,

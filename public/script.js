@@ -167,9 +167,11 @@ async function api(path, options = {}) {
 function initHome() {
   loadPhotoCarousel();
   initCarouselControls();
-  initQuiz();
+  const countdownActive = initQuizCountdown();
+  if (!countdownActive) {
+    initQuiz();
+  }
   initMessageForm();
-  initContactForm();
 
   window.setInterval(() => {
     if (!document.hidden) loadPhotoCarousel();
@@ -261,29 +263,57 @@ function initMessageForm() {
   });
 }
 
-function initContactForm() {
-  const form = $("[data-contact-form]");
-  if (!form) return;
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const status = $("[data-contact-status]");
-    const data = {
-      ...Object.fromEntries(new FormData(form).entries()),
-      type: "contact",
-    };
-    try {
-      status.textContent = "Invio in corso...";
-      await api("/api/messages", { method: "POST", body: data, admin: false });
-      form.reset();
-      status.textContent = "Richiesta inviata. Grazie!";
-      showSuccessDialog(
-        "Richiesta inviata",
-        "Grazie! Leggeremo il tuo messaggio con piacere.",
-      );
-    } catch (error) {
-      status.textContent = error.message;
+
+function initQuizCountdown() {
+  const countdownRoot = $("[data-quiz-countdown]");
+  const form = $("[data-quiz-start-form]");
+  if (!countdownRoot || !form) return false;
+
+  const target = new Date("2026-09-05T00:00:00+02:00");
+
+  const update = () => {
+    const now = new Date();
+    const diff = target - now;
+
+    if (diff <= 0) {
+      countdownRoot.classList.add("hidden");
+      form.classList.remove("hidden");
+      return true;
     }
-  });
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    const timerEl = $("[data-countdown-timer]", countdownRoot);
+    if (timerEl) {
+      timerEl.innerHTML = `
+        <div class="countdown-unit"><strong>${days}</strong><span>giorni</span></div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-unit"><strong>${String(hours).padStart(2, "0")}</strong><span>ore</span></div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-unit"><strong>${String(minutes).padStart(2, "0")}</strong><span>minuti</span></div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-unit"><strong>${String(seconds).padStart(2, "0")}</strong><span>secondi</span></div>
+      `;
+    }
+
+    form.classList.add("hidden");
+    return false;
+  };
+
+  const expired = update();
+  if (expired) return false;
+
+  const intervalId = window.setInterval(() => {
+    if (update()) {
+      window.clearInterval(intervalId);
+      initQuiz();
+    }
+  }, 1000);
+
+  return true;
 }
 
 async function initQuiz() {
@@ -306,25 +336,24 @@ async function initQuiz() {
   let identityCheckId = 0;
   const checkParticipation = async () => {
     const name = nameInput?.value.trim() || "";
-    const surname = surnameInput?.value.trim() || "";
     const startAlert = $("[data-quiz-start-alert]");
     const checkId = ++identityCheckId;
 
-    if (!name || !surname) {
+    if (!name) {
       startAlert?.classList.add("hidden");
       return false;
     }
 
     try {
       const check = await api(
-        `/api/quiz/participation?name=${encodeURIComponent(name)}&surname=${encodeURIComponent(surname)}`,
+        `/api/quiz/participation?name=${encodeURIComponent(name)}`,
         { admin: false },
       );
       if (checkId !== identityCheckId) return false;
       if (check.participated) {
         startAlert?.classList.remove("hidden");
         $("h3", startAlert).textContent =
-          "Hai già partecipato al quiz con questo nome e cognome.";
+          "Hai già partecipato al quiz con questo nome/nickname.";
         return true;
       }
       startAlert?.classList.add("hidden");
@@ -334,7 +363,7 @@ async function initQuiz() {
     return false;
   };
 
-  [nameInput, surnameInput].forEach((input) => {
+  [nameInput].forEach((input) => {
     input?.addEventListener("input", checkParticipation);
     input?.addEventListener("change", checkParticipation);
     input?.addEventListener("blur", checkParticipation);
@@ -346,7 +375,6 @@ async function initQuiz() {
     const participant = Object.fromEntries(new FormData(form).entries());
     state.quiz.participant = {
       name: participant.name.trim(),
-      surname: participant.surname.trim(),
     };
     state.quiz.current = 0;
     state.quiz.answers = new Array(state.quiz.questions.length).fill(null);
@@ -358,6 +386,7 @@ async function initQuiz() {
 
     const startAlert = $("[data-quiz-start-alert]");
     if (await checkParticipation()) return;
+
 
     startAlert?.classList.add("hidden");
     state.quiz.startedAt = performance.now();
@@ -1143,7 +1172,6 @@ async function loadAdminAll(showLoading = true) {
   await Promise.all([
     loadAdminDashboard(showLoading),
     loadAdminPhotos(showLoading),
-    loadAdminMessages(showLoading, "guestbook"),
     loadAdminMessages(showLoading, "contact"),
     ...(state.adminQuestionOrderDirty ? [] : [loadAdminQuiz(showLoading)]),
   ]);
@@ -1436,13 +1464,13 @@ async function saveQuestionOrder() {
   }
 }
 
-function renderAdminLeaderboard(search = "", page = state.adminPages.leaderboard) {
+  function renderAdminLeaderboard(search = "", page = state.adminPages.leaderboard) {
   const root = $("[data-admin-leaderboard]");
   if (!root) return;
 
   const query = search.trim().toLowerCase();
   const rows = state.adminLeaderboard.filter((row) =>
-    `${row.name} ${row.surname}`.toLowerCase().includes(query),
+    `${row.name}`.toLowerCase().includes(query),
   );
   state.adminPages.leaderboard = page;
   const pageRows = paginateAdminItems("leaderboard", rows);
@@ -1453,14 +1481,15 @@ function renderAdminLeaderboard(search = "", page = state.adminPages.leaderboard
           (row) => `
           <li>
             <span class="rank">${row.position}</span>
-            <span><strong>${escapeHtml(row.name)} ${escapeHtml(row.surname)}</strong><small>${row.correctAnswers}/${row.total} risposte corrette · Tempo ${formatElapsed(row.elapsedMs)}</small></span>
+            <span><strong>${escapeHtml(row.name)}</strong><small>${row.correctAnswers}/${row.total} risposte corrette · Tempo ${formatElapsed(row.elapsedMs)}</small></span>
             <span class="score">${formatElapsed(row.elapsedMs)}</span>
-            <button class="remove-submission" type="button" data-delete-submission="${escapeAttr(row.id)}" aria-label="Elimina ${escapeAttr(row.name)} ${escapeAttr(row.surname)}">×</button>
+            <button class="remove-submission" type="button" data-delete-submission="${escapeAttr(row.id)}" aria-label="Elimina ${escapeAttr(row.name)}">×</button>
           </li>
         `,
         )
         .join("")
     : `<li class="empty-line">Nessun invitato trovato.</li>`;
+
 
   renderAdminPagination("leaderboard", rows.length, () =>
     renderAdminLeaderboard(search),

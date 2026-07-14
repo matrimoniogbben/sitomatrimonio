@@ -279,23 +279,21 @@
         </div>
         <div class="quiz-layout quiz-layout-single">
           <article class="quiz-panel reveal">
+            <div class="quiz-countdown" data-quiz-countdown>
+              <p class="eyebrow">✦ Pazienza, quasi quasi</p>
+              <h3>Il quiz sarà disponibile tra</h3>
+              <div class="countdown-timer" data-countdown-timer></div>
+            </div>
             <form class="guest-form" data-quiz-start-form>
               <div class="result-card hidden" data-quiz-start-alert>
                 <p class="card-kicker">Risultato</p>
                 <h3></h3>
               </div>
               <label
-                >Nome<input
+                >Nome o Nickname<input
                   type="text"
                   name="name"
                   autocomplete="given-name"
-                  required
-              /></label>
-              <label
-                >Cognome<input
-                  type="text"
-                  name="surname"
-                  autocomplete="family-name"
                   required
               /></label>
               <button class="btn btn-primary" type="submit">
@@ -336,20 +334,21 @@
               Lasciateci un messaggio. La vostra energia è contagiosa!
             </p>
           </div>
-          <form class="message-form" data-message-form>
-            <label
-              >Nome e cognome<input type="text" name="name" required
-            /></label>
-            <label
-              >Email o telefono <small>facoltativo</small
-              ><input type="text" name="email"
-            /></label>
-            <label
-              >Messaggio<textarea name="message" rows="4" required></textarea>
-            </label>
-            <button class="btn btn-primary" type="submit">
-              Invia messaggio
-            </button>
+            <form class="message-form" data-message-form>
+              <label
+                >Nome<input type="text" name="name" required
+              /></label>
+              <label
+                >Email o telefono <small>facoltativo</small
+                ><input type="text" name="email"
+              /></label>
+              <label
+                >Messaggio<textarea name="message" rows="4" required></textarea>
+              </label>
+              <button class="btn btn-primary" type="submit">
+                Invia messaggio
+              </button>
+
             <p class="form-note" data-message-status></p>
             <p class="privacy-note">
               Nota: Il tuo messaggio rimarrà privato e sarà visibile
@@ -358,35 +357,7 @@
           </form>
         </div>
       </section>
-      <section class="section contact-section">
-        <div class="message-card reveal">
-          <div>
-            <p class="eyebrow">✦ Contattaci</p>
-            <h2>Qualche dubbio?</h2>
-            <p class="info-intro">
-              Avete dubbi su cosa indossare? Non sapete se potete portare i
-              bimbi? Se volete farci qualche domanda o commentare qualcosa,
-              scriveteci qui. Leggeremo i vostri messaggi direttamente via
-              email. Grazie!
-            </p>
-          </div>
-          <form class="message-form" data-contact-form>
-            <label
-              >Nome e cognome<input type="text" name="name" required
-            /></label>
-            <label
-              >Email o telefono<input type="text" name="email" required
-            /></label>
-            <label
-              >Messaggio<textarea name="message" rows="4" required></textarea>
-            </label>
-            <button class="btn btn-primary" type="submit">
-              Invia richiesta
-            </button>
-            <p class="form-note" data-contact-status></p>
-          </form>
-        </div>
-      </section>
+
     </main>
     <footer class="site-footer">
       <p>Gloria &amp; Beniamino</p>
