@@ -276,10 +276,13 @@ function initQuizCountdown() {
     const diff = target - now;
 
     if (diff <= 0) {
-      countdownRoot.classList.add("hidden");
-      form.classList.remove("hidden");
+      countdownRoot.hidden = true;
+      form.hidden = false;
       return true;
     }
+
+    countdownRoot.hidden = false;
+    form.hidden = true;
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -299,7 +302,6 @@ function initQuizCountdown() {
       `;
     }
 
-    form.classList.add("hidden");
     return false;
   };
 
@@ -552,7 +554,7 @@ function checkQuizAbandonedOnReload() {
       <img src="assets/couple-mark.png" alt="Gloria e Beniamino">
       <p class="eyebrow">Quiz terminato</p>
       <h2>Hai abbandonato il quiz</h2>
-      <p>Ricaricando la pagina il quiz è stato segnato come sbagliato. Per rifarlo contatta gli sposi.</p>
+      <p>Ricaricando la pagina, il quiz è stato considerato abbandonato. Per rifarlo contatta gli sposi.</p>
       <button class="btn btn-primary" type="button" data-close-success-dialog>Ho capito</button>
     </div>`;
   document.body.appendChild(dialog);
@@ -814,7 +816,7 @@ function initUpload() {
 
       try {
         const compressed = await compressImageToWebP(file, 1920, 0.8);
-        line.textContent = `Upload ${file.name} (${formatBytes(compressed.size)})...`;
+        line.textContent = `Caricamento ${file.name} (${formatBytes(compressed.size)})...`;
 
         const presign = await api("/api/photos/presign", {
           method: "POST",
@@ -936,7 +938,7 @@ function loadImageFromFile(file) {
     };
     image.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("Impossibile leggere l’immagine."));
+      reject(new Error("Impossibile leggere l'immagine."));
     };
     image.src = url;
   });
@@ -1265,10 +1267,13 @@ async function deleteSelectedPhotos() {
     return;
 
   try {
-    await api("/api/admin/photos", {
+    const data = await api("/api/admin/photos", {
       method: "DELETE",
       body: { keys },
     });
+    if (data.failed > 0) {
+      alert(data.message || "Alcune foto non sono state eliminate.");
+    }
     await loadAdminAll();
   } catch (error) {
     alert(error.message);
@@ -1377,7 +1382,7 @@ async function loadAdminQuiz(showLoading = true) {
             </ul>
             <div class="editor-actions">
               <button class="btn btn-ghost" type="button" data-move-question="up" data-question-id="${escapeAttr(question.id)}">Sposta su</button>
-              <button class="btn btn-ghost" type="button" data-move-question="down" data-question-id="${escapeAttr(question.id)}">Sposta giu</button>
+              <button class="btn btn-ghost" type="button" data-move-question="down" data-question-id="${escapeAttr(question.id)}">Sposta giù</button>
               <button class="btn btn-secondary" type="button" data-edit-question='${escapeAttr(JSON.stringify(question))}'>Modifica</button>
               <button class="btn btn-danger" type="button" data-delete-question="${escapeAttr(question.id)}">Elimina</button>
             </div>
@@ -1481,7 +1486,7 @@ async function saveQuestionOrder() {
           (row) => `
           <li>
             <span class="rank">${row.position}</span>
-            <span><strong>${escapeHtml(row.name)}</strong><small>${row.correctAnswers}/${row.total} risposte corrette · Tempo ${formatElapsed(row.elapsedMs)}</small></span>
+            <span><strong>${escapeHtml(row.name)}</strong><small>${row.correctAnswers}/${row.total} risposte corrette · tempo ${formatElapsed(row.elapsedMs)}</small></span>
             <span class="score">${formatElapsed(row.elapsedMs)}</span>
             <button class="remove-submission" type="button" data-delete-submission="${escapeAttr(row.id)}" aria-label="Elimina ${escapeAttr(row.name)}">×</button>
           </li>

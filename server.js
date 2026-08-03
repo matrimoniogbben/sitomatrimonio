@@ -34,6 +34,27 @@ const PHOTO_PREVIEW_EXPIRES_SECONDS = Number(
   process.env.PHOTO_PREVIEW_EXPIRES_SECONDS || 900,
 );
 const R2_DATA_KEY = process.env.R2_DATA_KEY || "site-data/data.json";
+const R2_ENDPOINT =
+  process.env.R2_ENDPOINT ||
+  `https://${process.env.R2_ACCOUNT_ID || ""}.r2.cloudflarestorage.com`;
+
+function wrapAsync(app) {
+  for (const method of ["get", "post", "put", "patch", "delete"]) {
+    const original = app[method].bind(app);
+    app[method] = (path, ...handlers) =>
+      original(
+        path,
+        ...handlers.map((handler) =>
+          handler.length >= 3
+            ? handler
+            : (req, res, next) =>
+                Promise.resolve(handler(req, res, next)).catch(next),
+        ),
+      );
+  }
+}
+
+wrapAsync(app);
 
 app.use(
   cors({
@@ -109,7 +130,7 @@ function hasR2Config() {
 const s3 = hasR2Config()
   ? new S3Client({
       region: process.env.R2_REGION || "auto",
-      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      endpoint: R2_ENDPOINT,
       credentials: {
         accessKeyId: process.env.R2_ACCESS_KEY_ID,
         secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
@@ -537,8 +558,11 @@ app.get("/api/photos", async (req, res) => {
   if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return jsonError(res, 400, "Data filtro non valida.");
   }
-  if (time && !/^\d{2}:\d{2}$/.test(time)) {
-    return jsonError(res, 400, "Orario filtro non valido.");
+  if (time) {
+    const t = timeToMinutes(time);
+    if (t < 0 || t > 1439) {
+      return jsonError(res, 400, "Orario filtro non valido.");
+    }
   }
 
   let filtered = data.photos.filter(
@@ -637,7 +661,24 @@ app.post("/api/messages", async (req, res) => {
   return jsonOk(res, { message: saved });
 });
 
+const QUIZ_OPEN_MS = process.env.QUIZ_OPEN_OVERRIDE
+  ? Number(process.env.QUIZ_OPEN_OVERRIDE)
+  : Date.UTC(2026, 8, 5) - 2 * 3600 * 1000; // 2026-09-05T00:00:00+02:00
+
+function quizNotYetOpen() {
+  return Date.now() < QUIZ_OPEN_MS;
+}
+
+function quizLocked(res) {
+  return jsonError(
+    res,
+    403,
+    "Il quiz non è ancora disponibile: si aprirà il 5 settembre 2026!",
+  );
+}
+
 app.get("/api/quiz/questions", async (req, res) => {
+  if (quizNotYetOpen()) return quizLocked(res);
   const data = await loadData();
 
   const questions = data.quiz.questions.map(
@@ -653,6 +694,7 @@ app.get("/api/quiz/questions", async (req, res) => {
 });
 
 app.get("/api/quiz/participation", async (req, res) => {
+  if (quizNotYetOpen()) return quizLocked(res);
   const name = cleanText(req.query.name, 80);
   if (!name) {
     return jsonError(res, 400, "Inserisci nome o nickname per iniziare il quiz.");
@@ -664,6 +706,7 @@ app.get("/api/quiz/participation", async (req, res) => {
 });
 
 app.post("/api/quiz/abandon", async (req, res) => {
+  if (quizNotYetOpen()) return quizLocked(res);
   let body = req.body;
   if (typeof body === "string") {
     try {
@@ -693,6 +736,7 @@ app.post("/api/quiz/abandon", async (req, res) => {
 });
 
 app.post("/api/quiz/submit", async (req, res) => {
+  if (quizNotYetOpen()) return quizLocked(res);
   const name = cleanText(req.body.name, 80);
   const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
   const elapsedMs = Math.min(
@@ -828,7 +872,18 @@ app.delete("/api/admin/photos", requireAdmin, async (req, res) => {
     return data.photos.length;
   });
 
-  return jsonOk(res, { deleted: deletedKeys.length, remaining, failed: failed.size });
+  const failedKeys = [...failed];
+  if (failedKeys.length) {
+    return jsonOk(res, {
+      deleted: deletedKeys.length,
+      remaining,
+      failed: failedKeys.length,
+      failedKeys,
+      message: `Alcune foto non sono state eliminate da Cloudflare R2: ${failedKeys.join(", ")}.`,
+    });
+  }
+
+  return jsonOk(res, { deleted: deletedKeys.length, remaining, failed: 0 });
 });
 
 app.get("/api/admin/messages", requireAdmin, async (req, res) => {
@@ -1026,14 +1081,27 @@ app.use((req, res) => {
 
 app.use((error, req, res, next) => {
   console.error(error);
+  const status = error?.status || error?.statusCode || 500;
+  const message =
+    status === 400 && error?.type === "entity.parse.failed"
+      ? "Richiesta non valida."
+      : "Errore interno del server.";
   return jsonError(
     res,
-    500,
-    "Errore interno del server.",
+    status,
+    message,
     process.env.NODE_ENV === "production" ? undefined : error.message,
   );
 });
 
 app.listen(PORT, () => {
   console.log(`Gloria & Beniamino wedding server attivo su porta ${PORT}`);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[process] Unhandled rejection:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("[process] Uncaught exception:", error);
 });
