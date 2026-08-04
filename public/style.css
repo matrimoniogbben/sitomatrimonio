@@ -506,6 +506,17 @@ h3 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.2rem;
 }
+.event-grid .event-card:nth-child(1) {
+  order: 1;
+}
+.event-grid .event-card:nth-child(3) {
+  order: 2;
+}
+.event-grid .parking-note {
+  order: 3;
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
 .event-card {
   padding: 1.6rem;
   border: 1px solid var(--line);
@@ -1767,6 +1778,15 @@ textarea {
   .upload-card,
   .admin-quiz-layout {
     grid-template-columns: 1fr;
+  }
+  .event-grid .event-card:nth-child(1) {
+    order: 1;
+  }
+  .event-grid .parking-note {
+    order: 2;
+  }
+  .event-grid .event-card:nth-child(3) {
+    order: 3;
   }
   .upload-card {
     overflow: hidden;
