@@ -192,7 +192,7 @@ async function loadPhotoCarousel() {
   if (!carousel) return;
 
   try {
-    const data = await api("/api/photos?limit=50", { admin: false });
+    const data = await api("/api/photos?limit=20", { admin: false });
     let photos = data.photos || [];
 
     if (!photos.length) {
@@ -202,6 +202,7 @@ async function loadPhotoCarousel() {
     }
 
     shuffleArray(photos);
+    // Già limitato a 20 dall'API, ma per sicurezza tagliamo comunque
     photos = photos.slice(0, 20);
 
     carousel.closest(".carousel-shell")?.classList.remove("is-empty");
@@ -224,12 +225,39 @@ function initCarouselControls() {
   const carousel = $("[data-photo-carousel]");
   if (!carousel) return;
 
-  $("[data-carousel-prev]")?.addEventListener("click", () => {
-    carousel.scrollBy({ left: -320, behavior: "smooth" });
+  const prevBtn = $("[data-carousel-prev]");
+  const nextBtn = $("[data-carousel-next]");
+  
+  prevBtn?.addEventListener("click", () => {
+    const cards = carousel.querySelectorAll(".carousel-card");
+    if (cards.length === 0) return;
+    
+    const cardWidth = cards[0].getBoundingClientRect().width + parseFloat(getComputedStyle(carousel).gap);
+    const scrollPos = carousel.scrollLeft;
+    const firstCardVisible = scrollPos < cardWidth * 0.5;
+    
+    if (firstCardVisible) {
+      // Infinite loop: go to last card
+      carousel.scrollTo({ left: carousel.scrollWidth, behavior: "smooth" });
+    } else {
+      carousel.scrollBy({ left: -320, behavior: "smooth" });
+    }
   });
 
-  $("[data-carousel-next]")?.addEventListener("click", () => {
-    carousel.scrollBy({ left: 320, behavior: "smooth" });
+  nextBtn?.addEventListener("click", () => {
+    const cards = carousel.querySelectorAll(".carousel-card");
+    if (cards.length === 0) return;
+    
+    const maxScroll = carousel.scrollWidth - carousel.clientWidth;
+    const scrollPos = carousel.scrollLeft;
+    const atEnd = scrollPos >= maxScroll - 10;
+    
+    if (atEnd) {
+      // Infinite loop: go to first card
+      carousel.scrollTo({ left: 0, behavior: "smooth" });
+    } else {
+      carousel.scrollBy({ left: 320, behavior: "smooth" });
+    }
   });
 }
 
@@ -552,7 +580,7 @@ function createLightboxDOM() {
       <button class="lightbox__nav prev" aria-label="Precedente" type="button">&#8249;</button>
       <button class="lightbox__nav next" aria-label="Successiva" type="button">&#8250;</button>
       <div class="lightbox__hint" aria-hidden="true">
-        Tocca due volte per zoomare · Scorri per cambiare foto
+        Tocca due volte per zoomare
       </div>
     </div>`;
   document.body.appendChild(lb);
