@@ -167,7 +167,7 @@ async function api(path, options = {}) {
 
 function initHome() {
   loadPhotoCarousel();
-  initCarouselControls();
+  // initCarouselControls viene chiamato dopo il caricamento delle foto
   const countdownActive = initQuizCountdown();
   if (!countdownActive) {
     initQuiz();
@@ -216,6 +216,9 @@ async function loadPhotoCarousel() {
       `,
       )
       .join("");
+    
+    // Inizializza i controlli del carosello dopo il caricamento delle foto
+    initCarouselControls();
   } catch (error) {
     carousel.innerHTML = `<div class="empty-state"><p>${escapeHtml(error.message)}</p></div>`;
   }
@@ -228,7 +231,44 @@ function initCarouselControls() {
   const prevBtn = $("[data-carousel-prev]");
   const nextBtn = $("[data-carousel-next]");
   
+  // Auto-scroll: avanza automaticamente ogni 3.5 secondi
+  let autoScrollInterval = null;
+  const startAutoScroll = () => {
+    if (autoScrollInterval) clearInterval(autoScrollInterval);
+    autoScrollInterval = setInterval(() => {
+      const cards = carousel.querySelectorAll(".carousel-card");
+      if (cards.length === 0) return;
+      
+      const maxScroll = carousel.scrollWidth - carousel.clientWidth;
+      const scrollPos = carousel.scrollLeft;
+      const atEnd = scrollPos >= maxScroll - 10;
+      
+      if (atEnd) {
+        carousel.scrollTo({ left: 0, behavior: "smooth" });
+      } else {
+        carousel.scrollBy({ left: 220, behavior: "smooth" });
+      }
+    }, 3500);
+  };
+  
+  const stopAutoScroll = () => {
+    if (autoScrollInterval) clearInterval(autoScrollInterval);
+    autoScrollInterval = null;
+  };
+  
+  // Avvia auto-scroll
+  startAutoScroll();
+  
+  // Ferma auto-scroll quando l'utente interagisce
+  carousel.addEventListener("scroll", () => {
+    stopAutoScroll();
+    startAutoScroll();
+  });
+  
   prevBtn?.addEventListener("click", () => {
+    stopAutoScroll();
+    startAutoScroll();
+    
     const cards = carousel.querySelectorAll(".carousel-card");
     if (cards.length === 0) return;
     
@@ -240,11 +280,14 @@ function initCarouselControls() {
       // Infinite loop: go to last card
       carousel.scrollTo({ left: carousel.scrollWidth, behavior: "smooth" });
     } else {
-      carousel.scrollBy({ left: -320, behavior: "smooth" });
+      carousel.scrollBy({ left: -220, behavior: "smooth" });
     }
   });
 
   nextBtn?.addEventListener("click", () => {
+    stopAutoScroll();
+    startAutoScroll();
+    
     const cards = carousel.querySelectorAll(".carousel-card");
     if (cards.length === 0) return;
     
@@ -256,7 +299,7 @@ function initCarouselControls() {
       // Infinite loop: go to first card
       carousel.scrollTo({ left: 0, behavior: "smooth" });
     } else {
-      carousel.scrollBy({ left: 320, behavior: "smooth" });
+      carousel.scrollBy({ left: 220, behavior: "smooth" });
     }
   });
 }
