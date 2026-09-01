@@ -2127,13 +2127,14 @@ textarea {
 .lightbox {
   position: fixed;
   inset: 0;
-  z-index: 1050;
+  z-index: 10500;
   display: none;
   align-items: center;
   justify-content: center;
   background: rgba(10, 8, 8, 0.96);
   backdrop-filter: blur(6px);
-  overflow-y: auto;
+  overflow: hidden;
+  touch-action: none;
 }
 
 .lightbox.open {
@@ -2175,8 +2176,8 @@ textarea {
 
 .lightbox__close {
   position: absolute;
-  top: -52px;
-  right: 0;
+  top: 20px;
+  right: 20px;
   width: 44px;
   height: 44px;
   border: none;
@@ -2208,7 +2209,7 @@ textarea {
 
 .lightbox__hint {
   position: absolute;
-  bottom: -28px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
   color: rgba(255, 255, 255, 0.6);
@@ -2241,7 +2242,27 @@ textarea {
   }
 
   .lightbox__close {
-    top: -48px;
+    top: 15px;
+    right: 15px;
+    width: 40px;
+    height: 40px;
+    font-size: 1.3rem;
+  }
+}
+
+/* Schermi molto piccoli (< 400px) */
+@media (max-width: 399px) {
+  .lightbox__close {
+    top: 10px;
+    right: 10px;
+    width: 38px;
+    height: 38px;
+    font-size: 1.2rem;
+  }
+  
+  .lightbox__hint {
+    bottom: 10px;
+    font-size: 0.65rem;
   }
 }
 
