@@ -906,10 +906,27 @@ function initUploadPreview() {
   if (!input || !preview) return;
 
   input.addEventListener("change", () => {
+    // Resetta sempre state.upload.files quando l'utente seleziona nuovi file
     state.upload.files = Array.from(input.files || []);
     state.upload.previewIndex = 0;
     renderUploadPreview(preview);
   });
+  
+  // Aggiungi listener per drag & drop che resetta lo stato
+  const dropzone = $("[data-dropzone]");
+  if (dropzone) {
+    dropzone.addEventListener("drop", () => {
+      // Il file input verrà aggiornato dal drop handler, ma assicuriamoci che
+      // il prossimo change event venga sempre processato
+      setTimeout(() => {
+        if (input.files?.length > 0) {
+          state.upload.files = Array.from(input.files);
+          state.upload.previewIndex = 0;
+          renderUploadPreview(preview);
+        }
+      }, 10);
+    });
+  }
 }
 
 function renderUploadPreview(preview = $("[data-upload-preview]")) {
@@ -978,7 +995,12 @@ function initUpload() {
     const status = $("[data-upload-status]");
     const formData = new FormData(form);
     const uploaderName = String(formData.get("uploaderName") || "").trim();
-    const files = state.upload.files;
+    
+    // Recupera files dall'input se state.upload.files è vuoto (fallback)
+    const fileInput = form.querySelector('input[type="file"]');
+    const files = state.upload.files.length > 0 
+      ? state.upload.files 
+      : Array.from(fileInput?.files || []);
 
     // Validazione pre-volo
     if (!uploaderName) {
@@ -1146,7 +1168,12 @@ function formResetGuaranteed() {
   try {
     const form = $("[data-upload-form]");
     if (form) {
+      // Resetta il form e soprattutto l'input file per permettere re-upload dello stesso file
       form.reset();
+      const fileInput = form.querySelector('input[type="file"]');
+      if (fileInput) {
+        fileInput.value = ""; // Forza reset dell'input file
+      }
       state.upload.files = [];
       renderUploadPreview();
     }
