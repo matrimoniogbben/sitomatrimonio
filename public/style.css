@@ -358,7 +358,8 @@ h3 {
 .hero-polaroid img {
   width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;
+  object-fit: contain;
+  background: var(--ivory);
 }
 .hero-polaroid figcaption {
   margin-top: 0.65rem;
@@ -535,8 +536,6 @@ h3 {
   font-size: 1.6rem;
   line-height: 1;
   flex-shrink: 0;
-}
-  place-items: center;
 }
 .event-card address {
   margin: 0.7rem 0 0;
@@ -742,7 +741,18 @@ h3 {
 .carousel-card img {
   width: 100%;
   height: 280px;
-  object-fit: cover;
+  height: auto;
+  object-fit: contain;
+  background: var(--ivory);
+  display: block;
+}
+
+/* Mobile: carousel immagini più compatte */
+@media (max-width: 620px) {
+  .carousel-card img {
+    height: auto;
+    max-height: 200px;
+  }
 }
 .photo-badge {
   padding: 0.55rem 0.65rem;
@@ -1078,7 +1088,8 @@ textarea {
   height: 74px;
   margin-bottom: 1rem;
   border-radius: 50%;
-  object-fit: cover;
+  object-fit: contain;
+  background: var(--ivory);
 }
 .success-dialog-card p {
   margin: 0.75rem 0 1.4rem;
@@ -1299,9 +1310,12 @@ textarea {
 }
 .gallery-item img {
   width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: var(--ivory);
   display: block;
+  border-radius: 6px;
 }
 .gallery-caption {
   display: flex;
@@ -1401,7 +1415,7 @@ textarea {
 .polaroid-dev img {
   width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 .polaroid-dev-caption {
@@ -1474,7 +1488,8 @@ textarea {
 .admin-photo-card img {
   width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;
+  object-fit: contain;
+  background: var(--ivory);
 }
 .admin-photo-card label {
   display: flex;
@@ -1608,7 +1623,8 @@ textarea {
 .admin-photo-card img {
   width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;
+  object-fit: contain;
+  background: var(--ivory);
 }
 .admin-photo-card label {
   display: flex;
@@ -2103,6 +2119,135 @@ textarea {
   .timeline-item--open .timeline-card {
     width: 100%;
     margin: 0;
+  }
+}
+
+/* ========== LIGHTBOX MODAL FULL-SCREEN CON ZOOM ========== */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 8, 8, 0.96);
+  backdrop-filter: blur(6px);
+  overflow-y: auto;
+}
+
+.lightbox.open {
+  display: flex;
+}
+
+.lightbox__container {
+  position: relative;
+  max-width: 98vw;
+  max-height: 98vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+.lightbox__image {
+  max-width: 95vw;
+  max-height: 95vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  background: var(--ivory);
+  border-radius: 8px;
+  box-shadow: var(--shadow-dialog);
+  transform-origin: center center;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lightbox__image.zoomed {
+  cursor: grab;
+}
+
+.lightbox__image.zoomed:active {
+  cursor: grabbing;
+}
+
+.lightbox__close {
+  position: absolute;
+  top: -52px;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: bold;
+  line-height: 1;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, transform 0.2s ease;
+  z-index: 10;
+}
+
+.lightbox__close:hover,
+.lightbox__close:focus {
+  background: rgba(255, 255, 255, 0.32);
+  transform: scale(1.1);
+  outline: none;
+}
+
+.lightbox__close:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.lightbox__hint {
+  position: absolute;
+  bottom: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.7rem;
+  text-align: center;
+  white-space: nowrap;
+  font-family: var(--sans);
+  pointer-events: none;
+}
+
+/* Zoom states */
+.lightbox__zoom-indicator {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.lightbox__zoom-indicator.visible {
+  opacity: 1;
+}
+
+/* Mobile touch gestures */
+@media (pointer: coarse) {
+  .lightbox__image {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .lightbox__close {
+    top: -48px;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .lightbox__image {
+    transition: transform 0.01ms;
   }
 }
  

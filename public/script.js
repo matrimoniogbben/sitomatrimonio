@@ -26,7 +26,7 @@ const state = {
   adminPages: { photos: 1, messages: 1, contacts: 1, questions: 1, leaderboard: 1 },
   adminQuestionOrderDirty: false,
   gallery: { page: 1, search: "", date: "", time: "", selecting: false, selected: new Set(), items: [] },
-  upload: { files: [], previewUrls: [], previewIndex: 0 },
+  upload: { files: [], previewUrls: [], previewIndex: 0, uploading: false },
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -36,6 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initRevealAnimations();
   initMapFrames();
   initDecorativeHearts();
+  initLightbox();
 
   if (page === "home") initHome();
   if (page === "album") initAlbum();
@@ -485,6 +486,189 @@ async function initQuiz() {
   initQuizNavigationGuard();
 }
 
+function initLightbox() {
+  // Delega click su tutte le immagini galleria/carousel/admin
+  document.body.addEventListener("click", (e) => {
+    const img = e.target.closest(
+      "[data-gallery] img, [data-photo-carousel] img, [data-admin-photos] img",
+    );
+    if (!img) return;
+
+    // Non aprire lightbox se click su checkbox/select/button
+    if (e.target.matches("input, button, label, .download-pill")) return;
+
+    openLightbox(img.src, img.alt);
+  }, { passive: true });
+
+  // Crea lightbox DOM se non esiste
+  if (!document.getElementById("lightbox")) createLightboxDOM();
+  const lightbox = document.getElementById("lightbox");
+  if (!lightbox) return;
+
+  // CHIUSURA via bottone X
+  const closeBtn = lightbox.querySelector(".lightbox__close");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", closeLightbox);
+  }
+
+  // CHIUSURA click overlay (solo se click sul contenitore principale, non sull'immagine)
+  lightbox.addEventListener("click", (e) => {
+    if (e.target === lightbox) closeLightbox();
+  });
+
+  // CHIUSURA via tasto ESC
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && lightbox.classList.contains("open")) {
+      closeLightbox();
+    }
+  });
+}
+
+function createLightboxDOM() {
+  const lb = document.createElement("div");
+  lb.id = "lightbox";
+  lb.className = "lightbox";
+  lb.setAttribute("role", "dialog");
+  lb.setAttribute("aria-modal", "true");
+  lb.setAttribute("aria-label", "Visualizzazione immagine a schermo intero");
+  lb.innerHTML = `
+    <div class="lightbox__container">
+      <div class="lightbox__loader" aria-hidden="true"></div>
+      <img class="lightbox__image" src="" alt="" />
+      <button class="lightbox__close" aria-label="Chiudi" type="button">&times;</button>
+      <div class="lightbox__hint" aria-hidden="true">
+        Pinch per zoom · Doppio tap per reset
+      </div>
+    </div>`;
+  document.body.appendChild(lb);
+  setupZoom(lb.querySelector(".lightbox__image"));
+}
+
+let zoomState = { scale: 1, x: 0, y: 0, isDragging: false };
+
+function setupZoom(imgEl) {
+  const container = imgEl.parentElement;
+
+  // Wheel zoom (desktop)
+  container.addEventListener("wheel", (e) => {
+    if (!imgEl.src) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    applyZoom(imgEl, delta, e.clientX, e.clientY);
+  }, { passive: false });
+
+  // Double-click zoom toggle
+  imgEl.addEventListener("dblclick", (e) => {
+    if (zoomState.scale > 1) {
+      resetZoom(imgEl);
+    } else {
+      applyZoom(imgEl, 2.5, e.clientX, e.clientY);
+    }
+  });
+
+  // Pan drag quando zoomed
+  imgEl.addEventListener("pointerdown", (e) => {
+    if (zoomState.scale <= 1) return;
+    zoomState.isDragging = true;
+    zoomState.startX = e.clientX - zoomState.x;
+    zoomState.startY = e.clientY - zoomState.y;
+    imgEl.classList.add("zoomed");
+    imgEl.setPointerCapture(e.pointerId);
+  });
+
+  imgEl.addEventListener("pointermove", (e) => {
+    if (!zoomState.isDragging) return;
+    zoomState.x = e.clientX - zoomState.startX;
+    zoomState.y = e.clientY - zoomState.startY;
+    updateTransform(imgEl);
+  });
+
+  imgEl.addEventListener("pointerup", () => {
+    zoomState.isDragging = false;
+    imgEl.classList.remove("zoomed");
+  });
+
+  imgEl.addEventListener("pointerleave", () => {
+    zoomState.isDragging = false;
+    imgEl.classList.remove("zoomed");
+  });
+}
+
+function applyZoom(imgEl, factor, clientX, clientY) {
+  const rect = imgEl.getBoundingClientRect();
+  const centerX = clientX - rect.left - rect.width / 2;
+  const centerY = clientY - rect.top - rect.height / 2;
+
+  zoomState.scale = Math.max(1, Math.min(5, zoomState.scale * factor));
+
+  if (zoomState.scale > 1) {
+    zoomState.x -= centerX * (factor - 1);
+    zoomState.y -= centerY * (factor - 1);
+    clampPan(imgEl);
+  } else {
+    resetZoom(imgEl);
+  }
+  updateTransform(imgEl);
+}
+
+function clampPan(imgEl) {
+  const rect = imgEl.getBoundingClientRect();
+  const maxX = (rect.width * zoomState.scale - imgEl.parentElement.clientWidth) / 2;
+  const maxY = (rect.height * zoomState.scale - imgEl.parentElement.clientHeight) / 2;
+  zoomState.x = Math.max(-maxX, Math.min(maxX, zoomState.x));
+  zoomState.y = Math.max(-maxY, Math.min(maxY, zoomState.y));
+}
+
+function updateTransform(imgEl) {
+  imgEl.style.transform = `translate(${zoomState.x}px, ${zoomState.y}px) scale(${zoomState.scale})`;
+}
+
+function resetZoom(imgEl) {
+  zoomState = { scale: 1, x: 0, y: 0, isDragging: false };
+  imgEl.style.transform = "translate(0, 0) scale(1)";
+  imgEl.classList.remove("zoomed");
+}
+
+function openLightbox(src, alt) {
+  let lb = document.getElementById("lightbox");
+  if (!lb) {
+    createLightboxDOM();
+    lb = document.getElementById("lightbox");
+  }
+  if (!lb) return;
+  const img = lb.querySelector(".lightbox__image");
+  const loader = lb.querySelector(".lightbox__loader");
+  if (!img || !loader) return;
+
+  resetZoom(img);
+  img.src = "";
+  img.alt = alt || "";
+  loader.style.display = "grid";
+  lb.classList.add("open");
+  document.body.style.overflow = "hidden";
+
+  // Preload immagine
+  const preload = new Image();
+  preload.onload = () => {
+    img.src = src;
+    loader.style.display = "none";
+  };
+  preload.onerror = () => {
+    loader.textContent = "Errore caricamento";
+    loader.style.color = "var(--danger)";
+  };
+  preload.src = src;
+}
+
+function closeLightbox() {
+  const lb = document.getElementById("lightbox");
+  if (!lb) return;
+  lb.classList.remove("open");
+  document.body.style.overflow = "";
+  const img = lb.querySelector(".lightbox__image");
+  if (img) resetZoom(img);
+}
+
 function initQuizNavigationGuard() {
   const handler = (event) => {
     if (!state.quiz.inProgress) return;
@@ -542,7 +726,7 @@ function checkQuizAbandonedOnReload() {
   } catch {}
   try { sessionStorage.removeItem("quizAbandoned"); sessionStorage.removeItem("quizParticipant"); } catch {}
   if (!abandoned) return;
-  if (stored?.name && stored?.surname) {
+  if (stored?.name) {
     fetch(`${apiBaseUrl}/api/quiz/abandon`, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(stored), keepalive: true }).catch(() => {});
   }
   const dialog = document.createElement("div");
@@ -606,6 +790,7 @@ async function submitQuiz() {
   state.quiz.inProgress = false;
   const payload = {
     ...state.quiz.participant,
+    quizStartedAt: state.quiz.startedAt,
     elapsedMs: Math.round(performance.now() - state.quiz.startedAt),
     answers: state.quiz.questions.map((question, index) => ({
       questionId: question.id,
@@ -782,92 +967,258 @@ function initUpload() {
   const form = $("[data-upload-form]");
   if (!form) return;
 
+  let abortController = null;
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    // Previene double-submit
+    if (state.upload.uploading) return;
 
     const status = $("[data-upload-status]");
     const formData = new FormData(form);
     const uploaderName = String(formData.get("uploaderName") || "").trim();
     const files = state.upload.files;
 
+    // Validazione pre-volo
     if (!uploaderName) {
-      status.innerHTML = `<div class="upload-line">Inserisci il tuo nome.</div>`;
+      showUploadError(status, "Inserisci il tuo nome.");
       return;
     }
-
     if (!files.length) {
-      status.innerHTML = `<div class="upload-line">Seleziona almeno una foto.</div>`;
+      showUploadError(status, "Seleziona almeno una foto.");
       return;
     }
-
     if (files.some((file) => file.size > 20 * 1024 * 1024)) {
-      status.innerHTML = `<div class="upload-line">Ogni foto non può superare i 20 MB.</div>`;
+      showUploadError(
+        status,
+        "Ogni foto non può superare i 20 MB (verrà compressa automaticamente).",
+      );
       return;
     }
 
+    // Imposta stato UI: disabilita form
+    setUploadingState(true);
     status.innerHTML = "";
     let uploadedCount = 0;
+    const errors = [];
 
-    for (const [index, file] of files.entries()) {
-      const line = document.createElement("div");
-      line.className = "upload-line";
-      line.textContent = `Compressione foto ${index + 1}/${files.length}...`;
-      status.appendChild(line);
+    // Crea AbortController per questo batch
+    abortController = new AbortController();
+    const { signal } = abortController;
 
-      try {
-        const compressed = await compressImageToWebP(file, 1920, 0.8);
-        line.textContent = `Caricamento ${file.name} (${formatBytes(compressed.size)})...`;
+    try {
+      for (const [index, file] of files.entries()) {
+        if (signal.aborted) break;
 
-        const presign = await api("/api/photos/presign", {
-          method: "POST",
-          admin: false,
-          body: {
-            uploaderName,
-            fileName: file.name,
-            size: compressed.size,
-            type: "image/webp",
-          },
-        });
+        const line = createStatusLine(status, `Compressione ${index + 1}/${files.length}...`);
 
-        const uploadResponse = await fetch(presign.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": "image/webp" },
-          body: compressed,
-        });
+        try {
+          // 1. Compressione con fallback
+          const compressed = await compressImageToWebP(file, 1920, 0.82);
+          const uploadType = compressed.type || "image/jpeg";
+          const uploadExtension = uploadType === "image/webp" ? ".webp" : ".jpg";
+          line.textContent = `Caricamento ${file.name} (${formatBytes(
+            compressed.size,
+          )})...`;
 
-        if (!uploadResponse.ok) {
-          throw new Error("Cloudflare R2 ha rifiutato il caricamento.");
+          // 2. Ottieni presigned URL con retry
+          const presign = await withRetry(
+            () =>
+              api("/api/photos/presign", {
+                method: "POST",
+                admin: false,
+                body: {
+                  uploaderName,
+                  fileName: file.name,
+                  size: compressed.size,
+                  type: uploadType,
+                },
+              }),
+            2,
+            1500,
+          );
+
+          // 3. Upload diretto a R2 con retry e timeout
+          await uploadToR2WithRetry(presign.uploadUrl, compressed, signal);
+
+          // 4. Conferma upload
+          await api("/api/photos/confirm", {
+            method: "POST",
+            admin: false,
+            body: {
+              key: presign.key,
+              uploaderName,
+              originalName: file.name.replace(/\.[^.]+$/, uploadExtension),
+              size: compressed.size,
+            },
+          });
+
+          line.textContent = `✓ ${file.name}`;
+          line.style.color = "var(--sage)";
+          uploadedCount += 1;
+
+        } catch (error) {
+          const msg = `Errore su ${file.name}: ${error.message}`;
+          line.textContent = msg;
+          line.style.color = "var(--danger)";
+          errors.push(msg);
+          console.error("[Upload] Failed:", error);
         }
-
-        await api("/api/photos/confirm", {
-          method: "POST",
-          admin: false,
-          body: {
-            key: presign.key,
-            uploaderName,
-            originalName: file.name.replace(/\.[^.]+$/, ".webp"),
-            size: compressed.size,
-          },
-        });
-
-        line.textContent = `Foto caricata: ${file.name}`;
-        uploadedCount += 1;
-      } catch (error) {
-        line.textContent = `Errore su ${file.name}: ${error.message}`;
       }
-    }
 
-    form.reset();
-    state.upload.files = [];
-    renderUploadPreview();
-    await loadGallery();
-    if (uploadedCount === files.length) {
-      showSuccessDialog(
-        "Foto caricate",
-        `Hai condiviso ${uploadedCount} foto nell'album. Grazie per il ricordo!`,
-      );
+      // Cleanup garantito: reset form e stato
+      formResetGuaranteed();
+
+      await loadGallery();
+
+      // Feedback finale
+      if (uploadedCount === files.length && files.length > 0) {
+        showSuccessDialog(
+          "Foto caricate",
+          `Hai condiviso ${uploadedCount} foto nell'album. Grazie per il ricordo!`,
+        );
+      } else if (uploadedCount > 0) {
+        showSuccessDialog(
+          "Caricamento parziale",
+          `${uploadedCount}/${files.length} foto caricate. ${errors.length
+            ? `Errori: ${errors.slice(0, 2).join("; ")}`
+            : ""}`,
+        );
+      } else if (errors.length) {
+        showUploadError(status, `Nessuna foto caricata: ${errors[0]}`);
+      }
+
+    } finally {
+      // Pulizia sempre eseguita, anche in caso di eccezione non catturata
+      abortController = null;
+      setUploadingState(false);
     }
   });
+
+  // Pulsante annulla opzionale
+  const cancelBtn = $("[data-upload-cancel]");
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      if (abortController) {
+        abortController.abort();
+        setUploadingState(false);
+      }
+      formResetGuaranteed();
+    });
+  }
+}
+
+// === Helper functions per upload resiliente ===
+
+function setUploadingState(uploading) {
+  state.upload.uploading = uploading;
+  const form = $("[data-upload-form]");
+  const submitBtn = form?.querySelector('button[type="submit"]');
+  const dropzone = $("[data-dropzone]");
+  const fileInput = form?.querySelector('input[type="file"]');
+
+  if (submitBtn) {
+    submitBtn.disabled = uploading;
+    submitBtn.textContent = uploading
+      ? "Caricamento in corso..."
+      : "Carica le mie foto nell'album";
+  }
+  if (dropzone) dropzone.style.pointerEvents = uploading ? "none" : "";
+  if (fileInput) fileInput.disabled = uploading;
+}
+
+function showUploadError(status, message) {
+  status.innerHTML = `<div class="upload-line" style="color:var(--danger)">${escapeHtml(
+    message,
+  )}</div>`;
+}
+
+function createStatusLine(container, text) {
+  const line = document.createElement("div");
+  line.className = "upload-line";
+  line.textContent = text;
+  container.appendChild(line);
+  return line;
+}
+
+function formResetGuaranteed() {
+  try {
+    const form = $("[data-upload-form]");
+    if (form) {
+      form.reset();
+      state.upload.files = [];
+      renderUploadPreview();
+    }
+  } catch (e) {
+    console.error("[Upload] Errore durante reset form:", e);
+    // Fallback: pulizia manuale
+    try { localStorage.removeItem("uploadInProgress"); } catch {}
+  }
+}
+
+// Upload PUT a R2 con timeout e retry
+async function uploadToR2WithRetry(uploadUrl, fileBlob, signal, retries = 2) {
+  const timeoutMs = 120000; // 2 minuti timeout per file grandi
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    // Combina signal esterno + timeout interno
+    const combinedSignal = combineAbortSignals(signal, controller.signal);
+
+    try {
+      const response = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": fileBlob.type || "application/octet-stream" },
+        body: fileBlob,
+        signal: combinedSignal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(
+          `R2 ${response.status}: ${errorText || "Upload fallito"}`,
+        );
+      }
+      return; // Successo
+
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      if (error.name === "AbortError" || error.name === "DOMException") {
+        throw new Error("Caricamento annullato o timeout raggiunto");
+      }
+
+      if (attempt === retries) throw error;
+
+      console.warn(
+        `[R2 Upload] Tentativo ${attempt + 1} fallito:`,
+        error.message,
+      );
+      await sleep(2000 * Math.pow(2, attempt));
+    }
+  }
+}
+
+function combineAbortSignals(externalSignal, timeoutSignal) {
+  if (!externalSignal) return timeoutSignal;
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.any === "function") {
+    return AbortSignal.any([externalSignal, timeoutSignal]);
+  }
+
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (externalSignal.aborted || timeoutSignal.aborted) {
+    controller.abort();
+    return controller.signal;
+  }
+  externalSignal.addEventListener("abort", abort, { once: true });
+  timeoutSignal.addEventListener("abort", abort, { once: true });
+  return controller.signal;
 }
 
 function showSuccessDialog(title, message) {
@@ -892,39 +1243,104 @@ function showSuccessDialog(title, message) {
   });
 }
 
-async function compressImageToWebP(file, maxSide = 1920, quality = 0.8) {
+async function compressImageToWebP(file, maxSide = 1920, quality = 0.82) {
   if (!file.type.startsWith("image/")) {
     throw new Error("Formato file non valido.");
   }
 
-  const bitmap = await createImageBitmap(file).catch(async () => {
-    const image = await loadImageFromFile(file);
-    return image;
-  });
+  // 1. Leggi file come bitmap (gestisce EXIF orientation nativamente)
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file, {
+      colorSpaceConversion: "default",
+      premultiplyAlpha: "none",
+      resizeQuality: "high",
+    });
+  } catch {
+    // Fallback per browser vecchi / formati non supportati (HEIC, etc.)
+    bitmap = await loadImageFromFile(file);
+  }
 
   const width = bitmap.width;
   const height = bitmap.height;
+
+  // 2. Calcola nuove dimensioni mantenendo aspect ratio
   const ratio = Math.min(1, maxSide / Math.max(width, height));
+  const newWidth = Math.round(width * ratio);
+  const newHeight = Math.round(height * ratio);
+
+  // 3. Canvas con eventuale correzione orientamento
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(width * ratio);
-  canvas.height = Math.round(height * ratio);
+  canvas.width = newWidth;
+  canvas.height = newHeight;
 
-  const context = canvas.getContext("2d", { alpha: false });
-  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const context = canvas.getContext("2d", {
+    alpha: false,
+    willReadFrequently: false,
+  });
+  context.imageSmoothingEnabled = ratio < 1;
+  context.imageSmoothingQuality = "high";
+  // Disegna bitmap (già orientato correttamente da createImageBitmap)
+  context.drawImage(bitmap, 0, 0, newWidth, newHeight);
 
+  // Rilascia bitmap se disponibile
+  if (bitmap.close) bitmap.close();
+
+  // 4. Converti a WebP Blob con fallback JPEG
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
-        if (!blob) return reject(new Error("Compressione non riuscita."));
-        resolve(
-          new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), {
-            type: "image/webp",
-          }),
-        );
+        if (!blob) {
+          // Fallback: prova a creare JPEG se WebP fallisce
+          createJpegFallback(file, file, quality)
+            .then((jpegBlob) => resolve(jpegBlob))
+            .catch(() => reject(new Error("Compressione non riuscita. Riprova con un file più piccola.")));
+          return;
+        }
+        const webpFile = new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), {
+          type: "image/webp",
+          lastModified: Date.now(),
+        });
+        resolve(webpFile);
       },
       "image/webp",
       quality,
     );
+  });
+}
+
+// Fallback: crea JPEG dall'immagine canvas se WebP fallisce
+async function createJpegFallback(originalBlob, originalFile, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx?.drawImage(img, 0, 0);
+      canvas.toBlob(
+        (jpegBlob) => {
+          if (!jpegBlob) return reject(new Error("JPEG fallback fallito."));
+          const jpegFile = new File(
+            [jpegBlob],
+            originalFile.name.replace(/\.[^.]+$/, ".jpg"),
+            { type: "image/jpeg" },
+          );
+          resolve(jpegFile);
+        },
+        "image/jpeg",
+        quality !== undefined ? quality : 0.92,
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Impossibile caricare immagine per fallback."));
+    };
+    // Usa un object URL per evitare di leggere il file due volte
+    const url = URL.createObjectURL(originalBlob);
+    img.src = url;
   });
 }
 
@@ -1022,6 +1438,8 @@ async function loadGallery(
 
     if (!photos.length) {
       gallery.innerHTML = `<div class="empty-state"><p>Nessuna foto trovata.</p></div>`;
+      renderGalleryPagination(0, data.limit || 18, data.page || 1);
+      updateGallerySelectionControls();
       return;
     }
 
@@ -1678,6 +2096,34 @@ function escapeAttr(value) {
   return escapeHtml(value);
 }
 
+// Helper: sleep with promise
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Retry with exponential backoff
+async function withRetry(fn, retries = 2, baseDelay = 1000) {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (attempt < retries) {
+        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 500;
+        console.warn(
+          `[Retry] Tentativo ${attempt + 1} fallito, riprovo tra ${Math.round(
+            delay,
+          )}ms:`,
+          error.message,
+        );
+        await sleep(delay);
+      }
+    }
+  }
+  throw lastError;
+}
+
 async function triggerDownload(url, filename) {
   try {
     const response = await fetch(url, { credentials: "include" });
@@ -1695,4 +2141,12 @@ async function triggerDownload(url, filename) {
     window.open(url, "_blank");
   }
 }
+
+
+
+
+
+
+
+
 

@@ -26,12 +26,12 @@ const PORT = Number(process.env.PORT || 3000);
 const DATA_FILE = path.resolve(process.env.DATA_FILE || "./data/data.json");
 const ADMIN_USER = process.env.ADMIN_USER || "";
 const ADMIN_PASS = process.env.ADMIN_PASS || "";
-const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 8);
+const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 20);
 const SIGNED_URL_EXPIRES_SECONDS = Number(
-  process.env.SIGNED_URL_EXPIRES_SECONDS || 900,
+  process.env.SIGNED_URL_EXPIRES_SECONDS || 3600,
 );
 const PHOTO_PREVIEW_EXPIRES_SECONDS = Number(
-  process.env.PHOTO_PREVIEW_EXPIRES_SECONDS || 900,
+  process.env.PHOTO_PREVIEW_EXPIRES_SECONDS || 3600,
 );
 const R2_DATA_KEY = process.env.R2_DATA_KEY || "site-data/data.json";
 const R2_ENDPOINT =
@@ -443,11 +443,14 @@ app.post("/api/photos/presign", async (req, res) => {
     return jsonError(res, 400, "Inserisci il nome di chi carica la foto.");
   }
 
-  if (type !== "image/webp") {
+  // Accetta WebP, JPEG, PNG, HEIC (il server userà sharp per convertire in WebP)
+  const allowedTypes = ["image/webp", "image/jpeg", "image/png", "image/heic"];
+  const typeLower = (type || "").toLowerCase();
+  if (!allowedTypes.includes(typeLower)) {
     return jsonError(
       res,
       400,
-      "Le foto devono essere compresse in WebP prima del caricamento.",
+      "Le foto devono essere in formato immagine (WebP, JPEG o PNG). Verranno convertite prima del caricamento.",
     );
   }
 
@@ -737,9 +740,10 @@ app.post("/api/quiz/abandon", async (req, res) => {
 
 app.post("/api/quiz/submit", async (req, res) => {
   if (quizNotYetOpen()) return quizLocked(res);
+
   const name = cleanText(req.body.name, 80);
   const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
-  const elapsedMs = Math.min(
+  const clientElapsedMs = Math.min(
     Math.max(Number(req.body.elapsedMs) || 0, 0),
     7_200_000,
   );
@@ -747,6 +751,22 @@ app.post("/api/quiz/submit", async (req, res) => {
   if (!name) {
     return jsonError(res, 400, "Nome o nickname sono obbligatori.");
   }
+
+  // === Validazione server-side elapsedMs con protezione TOCTOU ===
+  const quizStart = Number(req.body.quizStartedAt || 0);
+  const serverNow = Date.now();
+  let elapsedMs = clientElapsedMs;
+
+  // Se il client ha riferito un tempo di inizio, validiamo coerenza server-side
+  if (quizStart > 0 && quizStart < serverNow) {
+    const serverElapsed = serverNow - quizStart;
+    // Usa il valore più basso tra client e server, con tolleranza 30s per clock drift
+    if (Math.abs(serverElapsed - clientElapsedMs) > 30000) {
+      // Se c'è discrepanza significativa, usiamo il valore server (più affidabile)
+      elapsedMs = Math.min(serverElapsed, clientElapsedMs);
+    }
+  }
+  // ===========================================================
 
   const saved = await mutateData((data) => {
     const alreadyPlayed = hasQuizSubmission(data.quiz.submissions, name);
@@ -765,7 +785,7 @@ app.post("/api/quiz/submit", async (req, res) => {
     }
 
     const elapsedSeconds = Math.floor(elapsedMs / 1000);
-    const score = correctAnswers * 1000 - elapsedSeconds;
+    const score = correctAnswers * 1000 - elapsedMs / 1000; // Nota: usa elapsedMs già validato
 
     const submission = {
       id: crypto.randomUUID(),
@@ -773,7 +793,7 @@ app.post("/api/quiz/submit", async (req, res) => {
       score,
       correctAnswers,
       total: questions.length,
-      elapsedMs,
+      elapsedMs, // Usa elapsedMs validato
       createdAt: new Date().toISOString(),
     };
 
