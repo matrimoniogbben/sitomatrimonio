@@ -497,6 +497,14 @@ function initLightbox() {
     // Non aprire lightbox se click su checkbox/select/button
     if (e.target.matches("input, button, label, .download-pill")) return;
 
+    // Raccogli tutte le immagini del contenitore per navigazione
+    const container = img.closest("[data-gallery], [data-photo-carousel], [data-admin-photos]");
+    if (container) {
+      const allImgs = Array.from(container.querySelectorAll("img"));
+      lightboxState.images = allImgs.map(i => i.src);
+      lightboxState.currentIndex = allImgs.indexOf(img);
+    }
+
     openLightbox(img.src, img.alt);
   }, { passive: true });
 
@@ -524,6 +532,11 @@ function initLightbox() {
   });
 }
 
+let lightboxState = {
+  currentIndex: -1,
+  images: [],
+};
+
 function createLightboxDOM() {
   const lb = document.createElement("div");
   lb.id = "lightbox";
@@ -536,12 +549,76 @@ function createLightboxDOM() {
       <div class="lightbox__loader" aria-hidden="true"></div>
       <img class="lightbox__image" src="" alt="" />
       <button class="lightbox__close" aria-label="Chiudi" type="button">&times;</button>
+      <button class="lightbox__nav prev" aria-label="Precedente" type="button">&#8249;</button>
+      <button class="lightbox__nav next" aria-label="Successiva" type="button">&#8250;</button>
       <div class="lightbox__hint" aria-hidden="true">
-        Pinch per zoom · Doppio tap per reset
+        Tocca due volte per zoomare · Scorri per cambiare foto
       </div>
     </div>`;
   document.body.appendChild(lb);
-  setupZoom(lb.querySelector(".lightbox__image"));
+  
+  const img = lb.querySelector(".lightbox__image");
+  setupZoom(img);
+  setupLightboxNavigation(lb);
+}
+
+function setupLightboxNavigation(lightbox) {
+  const prevBtn = lightbox.querySelector(".lightbox__nav.prev");
+  const nextBtn = lightbox.querySelector(".lightbox__nav.next");
+  
+  if (prevBtn) {
+    prevBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      navigateLightbox(-1);
+    });
+  }
+  
+  if (nextBtn) {
+    nextBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      navigateLightbox(1);
+    });
+  }
+  
+  // Navigazione tastiera
+  document.addEventListener("keydown", (e) => {
+    if (!lightbox.classList.contains("open")) return;
+    if (e.key === "ArrowLeft") navigateLightbox(-1);
+    if (e.key === "ArrowRight") navigateLightbox(1);
+  });
+}
+
+function navigateLightbox(direction) {
+  if (lightboxState.images.length === 0 || lightboxState.currentIndex < 0) return;
+  
+  let newIndex = lightboxState.currentIndex + direction;
+  if (newIndex < 0) newIndex = lightboxState.images.length - 1;
+  if (newIndex >= lightboxState.images.length) newIndex = 0;
+  
+  lightboxState.currentIndex = newIndex;
+  const newSrc = lightboxState.images[newIndex];
+  
+  const lb = document.getElementById("lightbox");
+  if (!lb) return;
+  const img = lb.querySelector(".lightbox__image");
+  const loader = lb.querySelector(".lightbox__loader");
+  
+  if (!img || !loader) return;
+  
+  resetZoom(img);
+  loader.style.display = "grid";
+  img.src = "";
+  
+  const preload = new Image();
+  preload.onload = () => {
+    img.src = newSrc;
+    loader.style.display = "none";
+  };
+  preload.onerror = () => {
+    loader.textContent = "Errore caricamento";
+    loader.style.color = "var(--danger)";
+  };
+  preload.src = newSrc;
 }
 
 let zoomState = { scale: 1, x: 0, y: 0, isDragging: false };
