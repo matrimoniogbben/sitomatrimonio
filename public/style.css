@@ -721,6 +721,9 @@ h3 {
 }
 .carousel-shell {
   position: relative;
+  background: var(--cream-light);
+  border-radius: 8px;
+  padding: 0.5rem;
 }
 .photo-carousel {
   display: grid;
@@ -729,7 +732,7 @@ h3 {
   grid-auto-flow: column;
   gap: 1rem;
   overflow-x: auto;
-  padding: 0.1rem 0 1rem;
+  padding: 0.5rem 0.5rem 1rem;
   scroll-snap-type: x mandatory;
   scrollbar-width: thin;
 }
@@ -737,22 +740,37 @@ h3 {
   min-height: 280px;
   background: var(--ivory);
   scroll-snap-align: start;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 .carousel-card img {
   width: 100%;
-  height: auto;
-  aspect-ratio: 1 / 1;
-  object-fit: contain;
+  height: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
   background: var(--ivory);
   display: block;
 }
 
-/* Mobile: carousel immagini più compatte */
+/* Mobile: carousel immagini con aspect-ratio uniforme */
 @media (max-width: 620px) {
+  .carousel-card {
+    min-height: auto;
+    background: transparent;
+    box-shadow: none;
+  }
   .carousel-card img {
+    width: 100%;
     height: auto;
-    max-height: 200px;
-    aspect-ratio: auto;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    border-radius: 6px;
+    background: var(--cream-light);
+  }
+  .photo-carousel {
+    gap: 0.75rem;
+    padding: 0.5rem 0 1rem;
   }
 }
 .photo-badge {
@@ -774,21 +792,35 @@ h3 {
 }
 .carousel-control {
   position: absolute;
-  z-index: 2;
-  top: calc(50% - 10px);
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--line);
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 1rem;
+  z-index: 10;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--wine);
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--wine);
+  font-size: 1.1rem;
+  font-weight: bold;
   line-height: 1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: background 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+.carousel-control:hover {
+  background: var(--wine);
+  color: var(--white);
+  border-color: var(--wine);
+  transform: translateY(-50%) scale(1.05);
 }
 .carousel-control.prev {
-  left: -16px;
+  left: 8px;
 }
 .carousel-control.next {
-  right: -16px;
+  right: 8px;
 }
 .empty-state {
   display: grid;
@@ -1916,10 +1948,21 @@ textarea {
     padding-left: 18px;
   }
   .carousel-control {
-    display: none;
+    display: flex;
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+  .carousel-control.prev {
+    left: 4px;
+  }
+  .carousel-control.next {
+    right: 4px;
   }
   .photo-carousel {
-    grid-auto-columns: 78vw;
+    grid-auto-columns: 72vw;
+    gap: 0.5rem;
+    padding: 0.5rem 0.5rem 1rem;
   }
   .action-row,
   .hero-actions,
@@ -2178,12 +2221,12 @@ textarea {
   position: absolute;
   top: 20px;
   right: 20px;
-  width: 44px;
-  height: 44px;
-  border: none;
-  background: rgba(255, 255, 255, 0.18);
+  width: 48px;
+  height: 48px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.75);
   color: #fff;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: bold;
   line-height: 1;
   border-radius: 50%;
@@ -2191,13 +2234,15 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
   z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .lightbox__close:hover,
 .lightbox__close:focus {
-  background: rgba(255, 255, 255, 0.32);
+  background: rgba(0, 0, 0, 0.9);
+  border-color: rgba(255, 255, 255, 1);
   transform: scale(1.1);
   outline: none;
 }
@@ -2244,9 +2289,11 @@ textarea {
   .lightbox__close {
     top: 15px;
     right: 15px;
-    width: 40px;
-    height: 40px;
-    font-size: 1.3rem;
+    width: 44px;
+    height: 44px;
+    font-size: 1.5rem;
+    background: rgba(0, 0, 0, 0.85);
+    border-color: rgba(255, 255, 255, 0.95);
   }
 }
 
@@ -2255,9 +2302,11 @@ textarea {
   .lightbox__close {
     top: 10px;
     right: 10px;
-    width: 38px;
-    height: 38px;
-    font-size: 1.2rem;
+    width: 42px;
+    height: 42px;
+    font-size: 1.4rem;
+    background: rgba(0, 0, 0, 0.85);
+    border-color: rgba(255, 255, 255, 0.95);
   }
   
   .lightbox__hint {
