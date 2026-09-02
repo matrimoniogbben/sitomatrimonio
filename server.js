@@ -56,15 +56,58 @@ function wrapAsync(app) {
 
 wrapAsync(app);
 
+// CORS configurato per inviare headers correttamente FIN DAL PRIMO HANDSHAKE
+// Importante per il Cold Start su Render: gli headers devono essere presenti
+// anche nella primissima risposta dopo il risveglio del server
 app.use(
   cors({
-    origin:
-      process.env.CORS_ORIGIN === "*" || !process.env.CORS_ORIGIN
-        ? true
-        : process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()),
+    origin: (origin, callback) => {
+      // Se CORS_ORIGIN non è impostato o è "*", consenti tutte le origini
+      if (!process.env.CORS_ORIGIN || process.env.CORS_ORIGIN === "*") {
+        return callback(null, true);
+      }
+      
+      // Altrimenti valida contro la whitelist
+      const allowedOrigins = process.env.CORS_ORIGIN.split(",").map(o => o.trim());
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      return callback(new Error("CORS origin non autorizzata"));
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+
+// Middleware per garantire che gli headers CORS siano sempre presenti
+// Anche in caso di errori o risposte premature durante il cold start
+app.use((req, res, next) => {
+  // Assicurati che gli header CORS siano inviati per tutte le risposte
+  const allowedOrigin = req.headers.origin;
+  if (allowedOrigin) {
+    if (!process.env.CORS_ORIGIN || process.env.CORS_ORIGIN === "*") {
+      res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+    } else {
+      const allowedOrigins = process.env.CORS_ORIGIN.split(",").map(o => o.trim());
+      if (allowedOrigins.includes(allowedOrigin)) {
+        res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+      }
+    }
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  
+  // Gestisci preflight requests (OPTIONS) immediatamente
+  if (req.method === "OPTIONS") {
+    return res.status(204).send();
+  }
+  
+  next();
+});
+
 app.set("trust proxy", 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
@@ -551,52 +594,59 @@ app.post("/api/photos/confirm", async (req, res) => {
 });
 
 app.get("/api/photos", async (req, res) => {
-  const data = await loadData();
-  const limit = Math.min(Math.max(Number(req.query.limit || 5), 1), 200);
-  const page = Math.max(Number(req.query.page || 1), 1);
-  const search = cleanText(req.query.search || "", 120).toLowerCase();
-  const date = cleanText(req.query.date || "", 10);
-  const time = cleanText(req.query.time || "", 5);
+  try {
+    const data = await loadData();
+    const limit = Math.min(Math.max(Number(req.query.limit || 5), 1), 200);
+    const page = Math.max(Number(req.query.page || 1), 1);
+    const search = cleanText(req.query.search || "", 120).toLowerCase();
+    const date = cleanText(req.query.date || "", 10);
+    const time = cleanText(req.query.time || "", 5);
 
-  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return jsonError(res, 400, "Data filtro non valida.");
-  }
-  if (time) {
-    const t = timeToMinutes(time);
-    if (t < 0 || t > 1439) {
-      return jsonError(res, 400, "Orario filtro non valido.");
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return jsonError(res, 400, "Data filtro non valida.");
     }
-  }
-
-  let filtered = data.photos.filter(
-    (photo) =>
-      (!search || photo.uploaderName.toLowerCase().includes(search)) &&
-      (!date || photo.createdAt?.slice(0, 10) === date),
-  );
-
-  if (time) {
-    const target = timeToMinutes(time);
-    if (target >= 0) {
-      filtered = filtered
-        .map((photo) => {
-          const diff = timeToMinutes(photo.createdAt?.slice(11, 16) || "");
-          return { photo, diff: diff >= 0 ? Math.abs(diff - target) : 99999 };
-        })
-        .sort((a, b) => a.diff - b.diff || (a.photo.createdAt || "").localeCompare(b.photo.createdAt || ""))
-        .map((item) => item.photo);
+    if (time) {
+      const t = timeToMinutes(time);
+      if (t < 0 || t > 1439) {
+        return jsonError(res, 400, "Orario filtro non valido.");
+      }
     }
-  } else if (!search && !date) {
-    for (let i = filtered.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
-    }
-  }
-  const offset = (page - 1) * limit;
-  const photos = await Promise.all(
-    filtered.slice(offset, offset + limit).map((photo) => decoratePhoto(photo, req)),
-  );
 
-  return jsonOk(res, { photos, total: filtered.length, page, limit });
+    let filtered = data.photos.filter(
+      (photo) =>
+        (!search || photo.uploaderName.toLowerCase().includes(search)) &&
+        (!date || photo.createdAt?.slice(0, 10) === date),
+    );
+
+    if (time) {
+      const target = timeToMinutes(time);
+      if (target >= 0) {
+        filtered = filtered
+          .map((photo) => {
+            const diff = timeToMinutes(photo.createdAt?.slice(11, 16) || "");
+            return { photo, diff: diff >= 0 ? Math.abs(diff - target) : 99999 };
+          })
+          .sort((a, b) => a.diff - b.diff || (a.photo.createdAt || "").localeCompare(b.photo.createdAt || ""))
+          .map((item) => item.photo);
+      }
+    } else if (!search && !date) {
+      for (let i = filtered.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+      }
+    }
+    const offset = (page - 1) * limit;
+    const photos = await Promise.all(
+      filtered.slice(offset, offset + limit).map((photo) => decoratePhoto(photo, req)),
+    );
+
+    return jsonOk(res, { photos, total: filtered.length, page, limit });
+  } catch (error) {
+    console.error("Errore in GET /api/photos:", error.message);
+    // In caso di errore durante il caricamento dati (es. cold start), 
+    // restituisci array vuoto invece di errore 500
+    return jsonOk(res, { photos: [], total: 0, page: 1, limit: Number(req.query.limit || 5) });
+  }
 });
 
 app.get("/api/photos/download", async (req, res) => {

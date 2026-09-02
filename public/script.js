@@ -134,6 +134,10 @@ function initDecorativeHearts() {
   });
 }
 
+/**
+ * Funzione API con retry automatico e timeout esteso per gestire Cold Start su Render.
+ * Implementa backoff esponenziale per errori temporanei (503, 504, network errors).
+ */
 async function api(path, options = {}) {
   const headers = {
     ...(options.body instanceof FormData
@@ -146,23 +150,77 @@ async function api(path, options = {}) {
     headers.Authorization = `Bearer ${state.adminToken}`;
   }
 
-  const response = await fetch(apiUrl(path), {
-    ...options,
-    headers,
-    body:
-      options.body &&
-      !(options.body instanceof FormData) &&
-      typeof options.body !== "string"
-        ? JSON.stringify(options.body)
-        : options.body,
-  });
+  // Config per retry: max 3 tentativi, backoff esponenziale
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 secondo
+  const timeoutMs = 20000; // 20 secondi di timeout per ogni tentativo
 
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false) {
-    throw new Error(data.message || "Operazione non riuscita.");
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      const response = await fetch(apiUrl(path), {
+        ...options,
+        headers,
+        body:
+          options.body &&
+          !(options.body instanceof FormData) &&
+          typeof options.body !== "string"
+            ? JSON.stringify(options.body)
+            : options.body,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      // Gestisci errori HTTP temporanei (503 Service Unavailable, 504 Gateway Timeout)
+      if (response.status === 503 || response.status === 504) {
+        throw new Error(`Server temporaneamente non disponibile (${response.status})`);
+      }
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.message || "Operazione non riuscita.");
+      }
+
+      return data;
+    } catch (error) {
+      lastError = error;
+
+      // Se è l'ultimo tentativo, lancia l'errore
+      if (attempt >= maxRetries) {
+        break;
+      }
+
+      // Retry solo per errori di rete o errori temporanei del server
+      const isRetryable =
+        error.name === "AbortError" ||
+        error.name === "TypeError" || // Network error
+        error.message.includes("503") ||
+        error.message.includes("504") ||
+        error.message.includes("network") ||
+        error.message.includes("fetch");
+
+      if (!isRetryable) {
+        // Errore non ritentabile (es. 400, 401, 404)
+        throw error;
+      }
+
+      // Backoff esponenziale: 1s, 2s, 4s + jitter
+      const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 500;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
   }
 
-  return data;
+  // Tutti i tentativi falliti
+  throw new Error(
+    `Connessione al server non riuscita dopo ${maxRetries + 1} tentativi. ` +
+    `Il sito potrebbe essere in fase di avvio. Riprova tra pochi secondi.` +
+    (lastError?.message ? ` (${lastError.message})` : "")
+  );
 }
 
 function initHome() {
@@ -187,14 +245,29 @@ function shuffleArray(arr) {
   return arr;
 }
 
+/**
+ * Carica il carosello foto in Homepage con skeleton UI durante il caricamento.
+ * Mostra "Album senza foto" SOLO se la chiamata ha successo e l'array è vuoto.
+ */
 async function loadPhotoCarousel() {
   const carousel = $("[data-photo-carousel]");
   if (!carousel) return;
+
+  // Mostra skeleton loader elegante stile soft luxury
+  carousel.innerHTML = `
+    <div class="carousel-skeleton">
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </div>
+  `;
 
   try {
     const data = await api("/api/photos?limit=20", { admin: false });
     let photos = data.photos || [];
 
+    // Mostra messaggio "senza foto" SOLO se la chiamata ha successo (status 200) 
+    // e l'array restituito è effettivamente vuoto
     if (!photos.length) {
       carousel.innerHTML = emptyAlbumMarkup();
       carousel.closest(".carousel-shell")?.classList.add("is-empty");
@@ -220,7 +293,15 @@ async function loadPhotoCarousel() {
     // Inizializza i controlli del carosello dopo il caricamento delle foto
     initCarouselControls();
   } catch (error) {
-    carousel.innerHTML = `<div class="empty-state"><p>${escapeHtml(error.message)}</p></div>`;
+    // Mantiene lo skeleton o mostra errore solo se persistente
+    // Non mostrare "Album senza foto" qui - quello è solo per array vuoto dopo successo
+    console.warn("Caricamento carosello fallito:", error.message);
+    carousel.innerHTML = `
+      <div class="empty-state">
+        <p>⚠️ ${escapeHtml(error.message)}</p>
+        <button type="button" onclick="loadPhotoCarousel()" class="btn-retry">Riprova</button>
+      </div>
+    `;
   }
 }
 
@@ -1590,6 +1671,10 @@ function initGalleryClearFilters() {
   });
 }
 
+/**
+ * Carica la griglia dell'Album con skeleton UI durante il caricamento.
+ * Mostra "Nessuna foto trovata" SOLO se la chiamata ha successo e l'array è vuoto.
+ */
 async function loadGallery(
   search = state.gallery.search,
   page = state.gallery.page,
@@ -1599,7 +1684,12 @@ async function loadGallery(
   const gallery = $("[data-gallery]");
   if (!gallery) return;
 
-  gallery.innerHTML = `<div class="empty-state"><p>Caricamento album...</p></div>`;
+  // Mostra skeleton loader elegante stile soft luxury
+  gallery.innerHTML = `
+    <div class="gallery-skeleton">
+      ${Array.from({ length: 9 }, () => '<div class="skeleton-item"></div>').join("")}
+    </div>
+  `;
 
   try {
     state.gallery.search = search;
@@ -1611,6 +1701,8 @@ async function loadGallery(
     const photos = data.photos || [];
     state.gallery.items = photos;
 
+    // Mostra messaggio "nessuna foto" SOLO se la chiamata ha successo (status 200)
+    // e l'array restituito è effettivamente vuoto
     if (!photos.length) {
       gallery.innerHTML = `<div class="empty-state"><p>Nessuna foto trovata.</p></div>`;
       renderGalleryPagination(0, data.limit || 18, data.page || 1);
@@ -1643,7 +1735,13 @@ async function loadGallery(
     renderGalleryPagination(data.total, data.limit, data.page);
     updateGallerySelectionControls();
   } catch (error) {
-    gallery.innerHTML = `<div class="empty-state"><p>${escapeHtml(error.message)}</p></div>`;
+    console.warn("Caricamento album fallito:", error.message);
+    gallery.innerHTML = `
+      <div class="empty-state">
+        <p>⚠️ ${escapeHtml(error.message)}</p>
+        <button type="button" onclick="loadGallery()" class="btn-retry">Riprova</button>
+      </div>
+    `;
   }
 }
 

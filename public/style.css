@@ -873,6 +873,81 @@ h3 {
   max-width: 260px;
   margin: 0;
 }
+.btn-retry {
+  margin-top: 1rem;
+  padding: 0.6rem 1.2rem;
+  background: var(--gold);
+  color: var(--paper);
+  border: none;
+  border-radius: 2rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.btn-retry:hover {
+  background: var(--ink);
+  transform: translateY(-2px);
+}
+
+/* Skeleton loaders - stile soft luxury per caricamento */
+.carousel-skeleton,
+.gallery-skeleton {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.carousel-skeleton {
+  grid-template-columns: repeat(3, 200px);
+  justify-content: center;
+}
+
+.gallery-skeleton {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  padding: 0.5rem;
+}
+
+.skeleton-card,
+.skeleton-item {
+  background: linear-gradient(
+    90deg,
+    var(--ivory) 0%,
+    #f0e8e0 50%,
+    var(--ivory) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: 0.75rem;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-card {
+  height: 280px;
+  width: 200px;
+}
+
+.skeleton-item {
+  height: 260px;
+  min-width: 220px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
 .empty-album-state {
   grid-auto-rows: min-content;
   align-content: center;
