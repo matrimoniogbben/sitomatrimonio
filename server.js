@@ -479,14 +479,6 @@ function hasQuizSubmission(submissions, name) {
   );
 }
 
-app.get("/api/health", (req, res) => {
-  jsonOk(res, {
-    status: "online",
-    r2Configured: hasR2Config(),
-    adminConfigured: assertAdminCredentialsAreConfigured(),
-  });
-});
-
 app.post("/api/photos/presign", async (req, res) => {
   if (!requireR2(res)) return;
 
