@@ -22,6 +22,14 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+app.get("/api/health", (req, res) => {
+  jsonOk(res, {
+    status: "online",
+    r2Configured: hasR2Config(),
+    adminConfigured: assertAdminCredentialsAreConfigured(),
+  });
+});
+
 const PORT = Number(process.env.PORT || 3000);
 const DATA_FILE = path.resolve(process.env.DATA_FILE || "./data/data.json");
 const ADMIN_USER = process.env.ADMIN_USER || "";
