@@ -62,6 +62,11 @@ wrapAsync(app);
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Permetti richieste senza Origin header (es. Cron-job.org, curl, health checks, server-to-server)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
       // Se CORS_ORIGIN non è impostato o è "*", consenti tutte le origini
       if (!process.env.CORS_ORIGIN || process.env.CORS_ORIGIN === "*") {
         return callback(null, true);
