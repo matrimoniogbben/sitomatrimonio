@@ -721,7 +721,7 @@ app.post("/api/messages", async (req, res) => {
 
 const QUIZ_OPEN_MS = process.env.QUIZ_OPEN_OVERRIDE
   ? Number(process.env.QUIZ_OPEN_OVERRIDE)
-  : Date.UTC(2026, 8, 5) - 2 * 3600 * 1000; // 2026-09-05T00:00:00+02:00
+  : Date.UTC(2026, 8, 5, 11, 0, 0); // 2026-09-05T13:00:00+02:00 (13:00 italiano)
 
 function quizNotYetOpen() {
   return Date.now() < QUIZ_OPEN_MS;

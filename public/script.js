@@ -422,7 +422,7 @@ function initQuizCountdown() {
   const form = $("[data-quiz-start-form]");
   if (!countdownRoot || !form) return false;
 
-  const target = new Date("2026-09-05T00:00:00+02:00");
+  const target = new Date("2026-09-05T13:00:00+02:00");
 
   const update = () => {
     const now = new Date();
